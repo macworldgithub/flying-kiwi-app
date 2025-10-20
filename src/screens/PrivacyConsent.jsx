@@ -3,14 +3,34 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import tw from "tailwind-react-native-classnames";
 import { theme } from "../utils/theme";
-
+import { useNavigation } from "@react-navigation/native";
 const PrivacyConsent = () => {
+  const navigation = useNavigation();
   const [gdprChecked, setGdprChecked] = useState(false);
   const [ccpaChecked, setCcpaChecked] = useState(false);
+  console.log("GDPR Checked:", gdprChecked);
+
+  const handleGdprPress = () => {
+    if (!gdprChecked && !ccpaChecked) {
+      setGdprChecked(true);
+      setCcpaChecked(true);
+      return;
+    }
+    setGdprChecked(!gdprChecked);
+  };
+
+  const handleCcpaPress = () => {
+    if (!gdprChecked && !ccpaChecked) {
+      setGdprChecked(true);
+      setCcpaChecked(true);
+      return;
+    }
+    setCcpaChecked(!ccpaChecked);
+  };
 
   return (
     <LinearGradient
-      colors={theme.gradients.splash} 
+      colors={theme.gradients.splash}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={tw`flex-1`}
@@ -29,7 +49,9 @@ const PrivacyConsent = () => {
           {/* GDPR Section */}
           <View style={tw`mb-4 border border-gray-300 rounded-lg p-3 text-xs`}>
             <Text style={tw`font-semibold mb-2`}>GDPR Data Protection</Text>
-            <View style={tw`border border-gray-300 rounded-md h-20 p-2 mb-2 bg-gray-50`}>
+            <View
+              style={tw`border border-gray-300 rounded-md h-20 p-2 mb-2 bg-gray-50`}
+            >
               <ScrollView>
                 <Text style={tw`text-sm text-gray-700`}>
                   <Text style={tw`font-semibold`}>
@@ -43,7 +65,7 @@ const PrivacyConsent = () => {
               </ScrollView>
             </View>
             <TouchableOpacity
-              onPress={() => setGdprChecked(!gdprChecked)}
+              onPress={handleGdprPress}
               style={tw`flex-row items-center`}
             >
               <View
@@ -51,11 +73,12 @@ const PrivacyConsent = () => {
                   tw`w-5 h-5 mr-2 border rounded`,
                   {
                     borderColor: theme.colors.secondary,
-                    backgroundColor: gdprChecked ? theme.colors.secondary : 'transparent',
+                    backgroundColor: gdprChecked
+                      ? theme.colors.secondary
+                      : "transparent",
                   },
                 ]}
               />
-
 
               <Text style={tw`text-gray-700 text-sm`}>
                 I consent to the processing of my personal data under GDPR
@@ -66,7 +89,9 @@ const PrivacyConsent = () => {
           {/* CCPA Section */}
           <View style={tw`mb-4 border border-gray-300 rounded-lg p-3`}>
             <Text style={tw`font-semibold mb-2`}>CCPA Privacy Rights</Text>
-            <View style={tw`border border-gray-300 rounded-md h-20 p-2 mb-2 bg-gray-50`}>
+            <View
+              style={tw`border border-gray-300 rounded-md h-20 p-2 mb-2 bg-gray-50`}
+            >
               <ScrollView>
                 <Text style={tw`text-sm text-gray-700`}>
                   <Text style={tw`font-semibold`}>
@@ -80,7 +105,7 @@ const PrivacyConsent = () => {
               </ScrollView>
             </View>
             <TouchableOpacity
-              onPress={() => setCcpaChecked(!ccpaChecked)}
+              onPress={handleCcpaPress}
               style={tw`flex-row items-center`}
             >
               <View
@@ -88,7 +113,9 @@ const PrivacyConsent = () => {
                   tw`w-5 h-5 mr-2 border rounded`,
                   {
                     borderColor: theme.colors.secondary,
-                    backgroundColor: gdprChecked ? theme.colors.secondary : 'transparent',
+                    backgroundColor: ccpaChecked
+                      ? theme.colors.secondary
+                      : "transparent",
                   },
                 ]}
               />
@@ -101,11 +128,21 @@ const PrivacyConsent = () => {
 
           {/* Buttons */}
           <View style={tw`flex-row mt-4`}>
+            {/* <TouchableOpacity
+              style={[
+                tw`flex-1 border rounded-xl py-3 mr-2 items-center justify-center`,
+                { borderColor: theme.colors.primary },
+              ]}
+            >
+              <Text style={tw`font-semibold text-black`}>Decline</Text>
+            </TouchableOpacity> */}
+
             <TouchableOpacity
               style={[
                 tw`flex-1 border rounded-xl py-3 mr-2 items-center justify-center`,
                 { borderColor: theme.colors.primary },
               ]}
+              onPress={() => navigation.goBack()} 
             >
               <Text style={tw`font-semibold text-black`}>Decline</Text>
             </TouchableOpacity>
@@ -116,12 +153,13 @@ const PrivacyConsent = () => {
                 { backgroundColor: theme.colors.primary },
               ]}
               disabled={!gdprChecked || !ccpaChecked}
+              onPress={() => navigation.navigate("Home")}
             >
-              <Text style={tw`font-semibold text-white`}>Accept & Continue</Text>
+              <Text style={tw`font-semibold text-white`}>
+                Accept & Continue
+              </Text>
             </TouchableOpacity>
           </View>
-
-
 
           {/* Footer */}
           <Text style={tw`text-gray-500 text-xs text-center mt-3`}>
