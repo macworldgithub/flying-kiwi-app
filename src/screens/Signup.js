@@ -1,10 +1,18 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-// import * as LocalAuthentication from 'expo-local-authentication';
 import tw from "tailwind-react-native-classnames";
 import { theme } from "../utils/theme";
+import { storeUserData } from "../utils/storage";
+import { API_BASE_URL } from "../utils/config";
 
 const SignUp = () => {
   const navigation = useNavigation();
@@ -15,6 +23,78 @@ const SignUp = () => {
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
   const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async () => {
+    console.log("➡️ SignUp button clicked");
+
+    if (!name || !email || !pin || !street || !city || !state || !zip) {
+      console.log("❌ Missing fields");
+      Alert.alert("Missing Fields", "Please fill in all fields.");
+      return;
+    }
+
+    if (pin.length < 4) {
+      console.log("❌ Invalid PIN");
+      Alert.alert("Invalid PIN", "PIN must be at least 4 digits.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const body = {
+        name,
+        email,
+        pin,
+        street,
+        city,
+        state,
+        zip,
+        biometricEnrolled: true,
+      };
+
+      console.log("📦 Sending request to:", API_BASE_URL);
+      console.log("📝 Request body:", body);
+
+      const response = await fetch(`${API_BASE_URL}auth/signup`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      console.log("📥 Raw response status:", response.status);
+
+      const data = await response.json().catch(() => null);
+      console.log("📦 Parsed response data:", data);
+
+      if (!response.ok) {
+        console.log("❌ Signup failed");
+        throw new Error(
+          data?.message || `Signup failed (status ${response.status})`
+        );
+      }
+
+      console.log("✅ Signup successful, storing user data...");
+      await storeUserData(data);
+
+      Alert.alert("Success", "Account created successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.navigate("Login"),
+        },
+      ]);
+    } catch (error) {
+      console.error("🚨 Signup Error:", error);
+      Alert.alert("Error", error.message || "An error occurred during signup.");
+    } finally {
+      setLoading(false);
+      console.log("🏁 Signup process finished");
+    }
+  };
 
   return (
     <LinearGradient
@@ -35,6 +115,7 @@ const SignUp = () => {
             Create a new account to access Bele services
           </Text>
 
+          {/* Inputs */}
           <TextInput
             style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
             placeholder="Full Name"
@@ -89,17 +170,25 @@ const SignUp = () => {
             onChangeText={setPin}
           />
 
+          {/* Signup Button */}
           <TouchableOpacity
+            onPress={handleSignUp}
             style={[
-              tw` py-3 rounded-lg mb-3`,
+              tw`py-3 rounded-lg mb-3 flex-row justify-center items-center`,
               { backgroundColor: theme.colors.primary },
             ]}
+            disabled={loading}
           >
-            <Text style={tw`text-white text-center font-semibold`}>
-              Sign Up
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={tw`text-white text-center font-semibold`}>
+                Sign Up
+              </Text>
+            )}
           </TouchableOpacity>
 
+          {/* Back to Login */}
           <TouchableOpacity
             style={[
               tw`border py-3 rounded-lg`,
@@ -109,7 +198,7 @@ const SignUp = () => {
           >
             <Text
               style={[
-                tw` text-center font-semibold`,
+                tw`text-center font-semibold`,
                 { color: theme.colors.primary },
               ]}
             >

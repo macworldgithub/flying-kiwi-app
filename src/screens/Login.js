@@ -86,6 +86,7 @@ import {
   Image,
   Modal,
   TextInput,
+  ActivityIndicator,
   Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -94,6 +95,8 @@ import tw from "tailwind-react-native-classnames";
 import { theme } from "../utils/theme";
 import fingerprint from "../../assets/finger_print.png";
 import * as LocalAuthentication from "expo-local-authentication";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../utils/config";
 
 const Login = () => {
   const navigation = useNavigation();
@@ -101,6 +104,8 @@ const Login = () => {
   const [userIdInput, setUserIdInput] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const checkBiometrics = async () => {
@@ -135,6 +140,56 @@ const Login = () => {
     }
   };
 
+  const handleLogin = async () => {
+    if (!emailInput || !pinInput) {
+      Alert.alert("Missing Fields", "Please enter both email and PIN.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log("🔄 Logging in with:", { email: emailInput, pin: pinInput });
+
+      const response = await fetch(`${API_BASE_URL}auth/login`, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: emailInput.trim(),
+          pin: pinInput, // ✅ correct key per Swagger
+        }),
+      });
+
+      const data = await response.json();
+      console.log("📥 Login API Response:", data);
+
+      if (response.status !== 201) {
+        // ✅ handle 201 Created as success
+        throw new Error(data.message || "Unauthorized");
+      }
+
+      // ✅ Store token
+      await AsyncStorage.setItem("userData", JSON.stringify(data));
+      await AsyncStorage.setItem("access_token", data.access_token);
+
+      Alert.alert("Success", "Login successful!", [
+        {
+          text: "OK",
+          onPress: () => {
+            setModalVisible(false);
+            navigation.navigate("Home");
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error("❌ Login Error:", error);
+      Alert.alert("Login Failed", error.message || "Unauthorized access.");
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <LinearGradient
       colors={theme.gradients.splash}
@@ -235,15 +290,19 @@ const Login = () => {
         >
           <View style={[tw`bg-white rounded-2xl p-6 w-4/5`, { maxWidth: 320 }]}>
             <Text style={tw`text-lg font-bold text-center mb-4`}>
-              PIN Login
+              Email Login
             </Text>
+
             <TextInput
               style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
-              placeholder="Enter User ID (e.g., ACC12345)"
+              placeholder="Enter Email Address"
               placeholderTextColor="#9CA3AF"
-              value={userIdInput}
-              onChangeText={setUserIdInput}
+              value={emailInput}
+              onChangeText={setEmailInput}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
+
             <TextInput
               style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
               placeholder="Enter PIN"
@@ -253,43 +312,23 @@ const Login = () => {
               keyboardType="numeric"
               secureTextEntry
             />
+
             <TouchableOpacity
-              style={[
-                tw` py-3 rounded-lg mb-3`,
-                { backgroundColor: theme.colors.primary },
-              ]}
-            >
-              <Text style={tw`text-white text-center font-semibold`}>
-                Log In
-              </Text>
-            </TouchableOpacity>
-            {/* <TouchableOpacity
               style={[
                 tw`py-3 rounded-lg mb-3`,
                 { backgroundColor: theme.colors.primary },
               ]}
-              onPress={() => {
-                // Optional: You can add validation here before navigation
-                if (!userIdInput || !pinInput) {
-                  Alert.alert(
-                    "Missing Info",
-                    "Please enter both User ID and PIN."
-                  );
-                  return;
-                }
-
-                // Close modal and navigate to Home screen
-                setModalVisible(false);
-                setUserIdInput("");
-                setPinInput("");
-
-                navigation.navigate("Home"); 
-              }}
+              onPress={handleLogin}
+              disabled={loading}
             >
-              <Text style={tw`text-white text-center font-semibold`}>
-                Accept & Continue
-              </Text>
-            </TouchableOpacity> */}
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={tw`text-white text-center font-semibold`}>
+                  Log In
+                </Text>
+              )}
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[
@@ -298,7 +337,7 @@ const Login = () => {
               ]}
               onPress={() => {
                 setModalVisible(false);
-                setUserIdInput("");
+                setEmailInput("");
                 setPinInput("");
               }}
             >
