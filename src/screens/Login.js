@@ -294,7 +294,7 @@ const Login = () => {
             </Text>
 
             <TextInput
-              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
+              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3 text-black`}
               placeholder="Enter Email Address"
               placeholderTextColor="#9CA3AF"
               value={emailInput}
@@ -304,7 +304,7 @@ const Login = () => {
             />
 
             <TextInput
-              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
+              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3 text-black`}
               placeholder="Enter PIN"
               placeholderTextColor="#9CA3AF"
               value={pinInput}
