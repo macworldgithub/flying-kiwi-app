@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "tailwind-react-native-classnames";
 import { Bell, ArrowRight } from "lucide-react-native";
@@ -9,6 +9,7 @@ import { theme } from "../utils/theme";
 // import { IoIosLogOut } from "react-icons/io";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { LogOut, FileText, MapPin, Wifi } from "lucide-react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Home() {
   const navigation = useNavigation();
@@ -47,11 +48,44 @@ export default function Home() {
           </View>
           <View style={tw`ml-auto flex-row`}>
             <Bell size={24} color="black" style={tw`mr-4`} />
-            <LogOut
+           <Icon
               name="log-out"
               size={22}
               color="black"
-              onPress={() => navigation.navigate("Login")}
+              onPress={async () => {
+                Alert.alert(
+                  "Confirm Logout",
+                  "Are you sure you want to log out?",
+                  [
+                    {
+                      text: "Cancel",
+                      style: "cancel",
+                    },
+                    {
+                      text: "Logout",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await AsyncStorage.removeItem("userData");
+                          await AsyncStorage.removeItem("access_token");
+                          await AsyncStorage.removeItem("lastEmail");
+                          await AsyncStorage.removeItem("lastPin");
+                          navigation.reset({
+                            index: 0,
+                            routes: [{ name: "Login" }],
+                          });
+                        } catch (error) {
+                          console.error(
+                            "Error clearing AsyncStorage:",
+                            error
+                          );
+                        }
+                      },
+                    },
+                  ],
+                  { cancelable: true }
+                );
+              }}
             />
           </View>
         </View>
