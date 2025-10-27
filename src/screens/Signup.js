@@ -238,6 +238,7 @@ import tw from "tailwind-react-native-classnames";
 import { theme } from "../utils/theme";
 import { storeUserData } from "../utils/storage";
 import { API_BASE_URL } from "../utils/config";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const SignUp = () => {
   const navigation = useNavigation();

@@ -128,7 +128,10 @@ const Login = () => {
         cancelLabel: "Cancel",
       });
       if (result.success) {
-        navigation.navigate("PrivacyConsent");
+        await AsyncStorage.setItem("lastEmail", emailInput.trim());
+        await AsyncStorage.setItem("lastPin", pinInput);
+
+        navigation.navigate("Home");
         return;
       }
       Alert.alert("Authentication Failed", "Please try again or use PIN.");
