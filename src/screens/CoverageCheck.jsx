@@ -63,7 +63,7 @@ const CoverageCheck = ({ navigation }) => {
           </Text>
           <View style={tw`mb-3`}>
             <Text style={tw`text-gray-700 font-semibold mb-1`}>
-              ZIP Code or Address
+              Post Code or Address
             </Text>
             <TextInput
               style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
@@ -85,7 +85,7 @@ const CoverageCheck = ({ navigation }) => {
           </View> */}
 
           {/* Quick ZIPs */}
-          <View style={tw`mb-2`}>
+          {/* <View style={tw`mb-2`}>
             <Text style={tw`text-gray-700 font-semibold mb-2`}>
               Quick ZIP Codes
             </Text>
@@ -100,7 +100,7 @@ const CoverageCheck = ({ navigation }) => {
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </View> */}
           <TouchableOpacity
             style={[tw`py-3 rounded-xl`, { backgroundColor: "#2D82FE" }]}
             onPress={handleCheck}
