@@ -270,9 +270,11 @@ const SignUp = () => {
         email,
         pin,
         street,
-        city,
+        // city,
+        suburb: city,
         state,
-        zip,
+        // zip,
+        postcode: zip,
         biometricEnrolled: true,
       };
 
