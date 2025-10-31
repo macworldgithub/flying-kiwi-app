@@ -280,7 +280,7 @@ export default function Home() {
 <html>
   <head>
     <meta charset="utf-8" />
-    <script src="https://api.quickstream.support.qvalent.com/rest/v1/quickstream-api-1.0.min.js"></script>
+    <script src="https://api.quickstream.westpac.com.au/rest/v1/quickstream-api-1.0.min.js"></script>
     <style>
       * { box-sizing: border-box; }
       body {
@@ -354,7 +354,7 @@ export default function Home() {
 
     <script>
       QuickstreamAPI.init({
-        publishableApiKey: 'C01967_PUB_yq7vmrc8abkyjxmkp4iqbdxnqpx8vb4p8fnau7x7fz4shpwpqqyah6fmhzww'
+        publishableApiKey: 'TIAB_PUB_sawvcp2cgmdfiyehcysqpe6qh6ajk4pbhgasz3t9tetu7t3r9p767ygsmmxm'
       });
 
       let trustedFrame = null;
@@ -362,7 +362,7 @@ export default function Home() {
       const submitBtn = document.getElementById('submitBtn');
 
       QuickstreamAPI.creditCards.createTrustedFrame({
-        config: { supplierBusinessCode: 'C01967' },
+        config: { supplierBusinessCode: 'TIABREST' },
         iframe: {
           width: "100%",
           height: "600px",
@@ -450,6 +450,8 @@ export default function Home() {
               </Text>
             </TouchableOpacity>
           </View>
+          {/* previous publishable key */}
+          {/* C01967_PUB_yq7vmrc8abkyjxmkp4iqbdxnqpx8vb4p8fnau7x7fz4shpwpqqyah6fmhzww */}
         </View>
       </Modal>
     </SafeAreaView>
