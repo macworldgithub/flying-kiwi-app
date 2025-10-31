@@ -1,45 +1,273 @@
-import React, { useState } from "react";
+// import React, { useState } from "react";
+// import {
+//   View,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   ScrollView,
+// } from "react-native";
+// import tw from "tailwind-react-native-classnames";
+// import Icon from "react-native-vector-icons/MaterialIcons";
+// import { ArrowLeft } from "lucide-react-native";
+// import { theme } from "../utils/theme";
+// import { MapPin } from "lucide-react-native";
+
+// const UpdateAddress = ({ navigation }) => {
+//   const [street, setStreet] = useState("");
+//   const [city, setCity] = useState("");
+//   const [state, setState] = useState("");
+//   const [zip, setZip] = useState("");
+
+//   const handleUpdate = () => {
+//     if (!street || !city || !state || !zip) {
+//       alert("Please fill all fields");
+//       return;
+//     }
+
+//     // Dynamic data payload
+//     const newAddress = {
+//       street,
+//       city,
+//       state,
+//       zip,
+//     };
+
+//     console.log("Updated Address: ", newAddress);
+//     alert("Service address updated successfully!");
+//   };
+
+//   return (
+//     <ScrollView style={tw`flex-1 bg-white px-4 pt-8`}>
+//       {/* Header */}
+//       <View style={tw`flex-row items-center mb-4 py-4 `}>
+//         <TouchableOpacity onPress={() => navigation.goBack()}>
+//           <ArrowLeft size={24} color="black" />
+//         </TouchableOpacity>
+//         <Text style={tw`ml-3 text-lg font-semibold`}>Update Address</Text>
+//       </View>
+
+//       {/* Current Service Address */}
+//       <View style={tw`bg-gray-100 rounded-xl p-4`}>
+//         <View style={tw`flex-row items-center`}>
+//           <MapPin name="location-on" size={22} color="black" />
+//           <Text style={tw`ml-2 font-semibold`}>Current Service Address</Text>
+//         </View>
+//         <Text style={tw`mt-2 text-gray-800`}>
+//           123 Main St, Anytown, ST 12345
+//         </Text>
+//         <Text style={tw`text-gray-500 text-xs`}>Account #UC-2024-0789</Text>
+//       </View>
+
+//       {/* New Service Address */}
+//       <View style={tw`bg-white rounded-xl p-4 mt-6 border border-gray-200`}>
+//         <Text style={tw`font-semibold mb-2`}>New Service Address</Text>
+//         <Text style={tw`text-xs text-gray-500 mb-4`}>
+//           Enter your new address details. Service transfer will be effective
+//           next billing cycle.
+//         </Text>
+
+//         {/* Input Fields */}
+//         <View style={tw`mb-3`}>
+//           <Text style={tw`text-gray-700 font-semibold mb-1`}>Address</Text>
+//           <TextInput
+//             style={tw`border border-gray-300 rounded-lg px-3 py-2`}
+//             placeholder="123 Address"
+//             placeholderTextColor="#9CA3AF"
+//             value={street}
+//             onChangeText={setStreet}
+//           />
+//         </View>
+
+//         <View style={tw`mb-3`}>
+//           <Text style={tw`text-gray-700 font-semibold mb-1`}>City</Text>
+//           <TextInput
+//             style={tw`border border-gray-300 rounded-lg px-3 py-2`}
+//             placeholder="Anytown"
+//             placeholderTextColor="#9CA3AF"
+//             value={city}
+//             onChangeText={setCity}
+//           />
+//         </View>
+
+//         <View style={tw`mb-3`}>
+//           <Text style={tw`text-gray-700 font-semibold mb-1`}>State</Text>
+//           <TextInput
+//             style={tw`border border-gray-300 rounded-lg px-3 py-2`}
+//             placeholder="ST"
+//             placeholderTextColor="#9CA3AF"
+//             value={state}
+//             onChangeText={setState}
+//           />
+//         </View>
+
+//         <View style={tw`mb-3`}>
+//           <Text style={tw`text-gray-700 font-semibold mb-1`}>ZIP Code</Text>
+//           <TextInput
+//             style={tw`border border-gray-300 rounded-lg px-3 py-2`}
+//             placeholder="12345"
+//             placeholderTextColor="#9CA3AF"
+//             keyboardType="numeric"
+//             value={zip}
+//             onChangeText={setZip}
+//           />
+//         </View>
+
+//         {/* Note */}
+//         <View style={tw`bg-gray-100 rounded-lg p-3 mb-4`}>
+//           <Text style={tw`text-xs text-gray-600`}>
+//             Note: Address changes may require a service visit to ensure proper
+//             connection at your new location. A $25 transfer fee may apply.
+//           </Text>
+//         </View>
+
+//         {/* Submit Button */}
+//         <TouchableOpacity
+//           style={[tw`py-3 rounded-xl`, { backgroundColor: "#2D82FE" }]}
+//           onPress={handleUpdate}
+//         >
+//           <Text style={tw`text-white text-center font-semibold`}>
+//             Update Service Address
+//           </Text>
+//         </TouchableOpacity>
+//       </View>
+
+//       {/* Footer Note */}
+//       <Text style={tw`text-xs text-gray-500 text-center mt-4 mb-6`}>
+//         You'll receive confirmation via email and SMS once the update is
+//         processed
+//       </Text>
+//     </ScrollView>
+//   );
+// };
+
+// export default UpdateAddress;
+
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import tw from "tailwind-react-native-classnames";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { ArrowLeft } from "lucide-react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "../utils/theme";
-import { MapPin } from "lucide-react-native";
+import { API_BASE_URL } from "../utils/config";
 
 const UpdateAddress = ({ navigation }) => {
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState("");
+  const [token, setToken] = useState("");
 
-  const handleUpdate = () => {
+  // ✅ Get token from AsyncStorage
+  const getToken = async () => {
+    try {
+      const storedToken = await AsyncStorage.getItem("access_token");
+      if (storedToken) {
+        setToken(storedToken);
+      } else {
+        Alert.alert("Error", "No access token found. Please log in again.");
+        navigation.replace("Login");
+      }
+    } catch (error) {
+      console.error("Error reading token:", error);
+      Alert.alert("Error", "Failed to retrieve access token.");
+    }
+  };
+
+  // ✅ Fetch current address from API
+  const fetchCurrentAddress = async (authToken) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}address`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`);
+
+      const data = await response.json();
+      setCurrentAddress(data.serviceAddress || "No address found");
+    } catch (error) {
+      console.error("Error fetching address:", error);
+      Alert.alert("Error", "Failed to load service address");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      await getToken();
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (token) {
+      fetchCurrentAddress(token);
+    }
+  }, [token]);
+
+  // ✅ Handle Address Update
+  const handleUpdate = async () => {
     if (!street || !city || !state || !zip) {
-      alert("Please fill all fields");
+      Alert.alert("Validation", "Please fill all fields");
       return;
     }
 
-    // Dynamic data payload
-    const newAddress = {
-      street,
-      city,
-      state,
-      zip,
-    };
+    const newAddress = `${street}, ${city}, ${state}, ${zip}`;
 
-    console.log("Updated Address: ", newAddress);
-    alert("Service address updated successfully!");
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}address/update`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ newAddress }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setCurrentAddress(data.address.serviceAddress);
+        Alert.alert("Success", "Service address updated successfully!");
+        // Clear input fields
+        setStreet("");
+        setCity("");
+        setState("");
+        setZip("");
+      } else {
+        console.error("Update failed:", data);
+        Alert.alert("Error", data.message || "Failed to update address.");
+      }
+    } catch (error) {
+      console.error("Error updating address:", error);
+      Alert.alert("Error", "Something went wrong while updating address.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <ScrollView style={tw`flex-1 bg-white px-4 pt-8`}>
       {/* Header */}
-      <View style={tw`flex-row items-center mb-4 py-4 `}>
+      <View style={tw`flex-row items-center mb-4 py-4`}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color="black" />
         </TouchableOpacity>
@@ -49,13 +277,24 @@ const UpdateAddress = ({ navigation }) => {
       {/* Current Service Address */}
       <View style={tw`bg-gray-100 rounded-xl p-4`}>
         <View style={tw`flex-row items-center`}>
-          <MapPin name="location-on" size={22} color="black" />
+          <Icon name="location-on" size={22} color="black" />
           <Text style={tw`ml-2 font-semibold`}>Current Service Address</Text>
         </View>
-        <Text style={tw`mt-2 text-gray-800`}>
-          123 Main St, Anytown, ST 12345
-        </Text>
-        <Text style={tw`text-gray-500 text-xs`}>Account #UC-2024-0789</Text>
+
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color={theme.colors.primary}
+            style={tw`mt-3`}
+          />
+        ) : (
+          <>
+            <Text style={tw`mt-2 text-gray-800`}>
+              {currentAddress || "No address available"}
+            </Text>
+            <Text style={tw`text-gray-500 text-xs`}>Account #UC-2024-0789</Text>
+          </>
+        )}
       </View>
 
       {/* New Service Address */}
@@ -66,53 +305,36 @@ const UpdateAddress = ({ navigation }) => {
           next billing cycle.
         </Text>
 
-        {/* Input Fields */}
-        <View style={tw`mb-3`}>
-          <Text style={tw`text-gray-700 font-semibold mb-1`}>Address</Text>
-          <TextInput
-            style={tw`border border-gray-300 rounded-lg px-3 py-2`}
-            placeholder="123 Address"
-            placeholderTextColor="#9CA3AF"
-            value={street}
-            onChangeText={setStreet}
-          />
-        </View>
+        <TextInput
+          style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3 text-black`}
+          placeholder="Street Address"
+          placeholderTextColor="gray"
+          value={street}
+          onChangeText={setStreet}
+        />
+        <TextInput
+          style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3 text-black`}
+          placeholder="City"
+          placeholderTextColor="gray"
+          value={city}
+          onChangeText={setCity}
+        />
+        <TextInput
+          style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3 text-black`}
+          placeholder="State"
+          placeholderTextColor="gray"
+          value={state}
+          onChangeText={setState}
+        />
+        <TextInput
+          style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3 text-black`}
+          placeholder="ZIP Code"
+          placeholderTextColor="gray"
+          keyboardType="numeric"
+          value={zip}
+          onChangeText={setZip}
+        />
 
-        <View style={tw`mb-3`}>
-          <Text style={tw`text-gray-700 font-semibold mb-1`}>City</Text>
-          <TextInput
-            style={tw`border border-gray-300 rounded-lg px-3 py-2`}
-            placeholder="Anytown"
-            placeholderTextColor="#9CA3AF"
-            value={city}
-            onChangeText={setCity}
-          />
-        </View>
-
-        <View style={tw`mb-3`}>
-          <Text style={tw`text-gray-700 font-semibold mb-1`}>State</Text>
-          <TextInput
-            style={tw`border border-gray-300 rounded-lg px-3 py-2`}
-            placeholder="ST"
-            placeholderTextColor="#9CA3AF"
-            value={state}
-            onChangeText={setState}
-          />
-        </View>
-
-        <View style={tw`mb-3`}>
-          <Text style={tw`text-gray-700 font-semibold mb-1`}>ZIP Code</Text>
-          <TextInput
-            style={tw`border border-gray-300 rounded-lg px-3 py-2`}
-            placeholder="12345"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="numeric"
-            value={zip}
-            onChangeText={setZip}
-          />
-        </View>
-
-        {/* Note */}
         <View style={tw`bg-gray-100 rounded-lg p-3 mb-4`}>
           <Text style={tw`text-xs text-gray-600`}>
             Note: Address changes may require a service visit to ensure proper
@@ -120,21 +342,27 @@ const UpdateAddress = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Submit Button */}
         <TouchableOpacity
-          style={[tw`py-3 rounded-xl`, { backgroundColor: "#2D82FE" }]}
+          style={[
+            tw`py-3 rounded-xl items-center`,
+            { backgroundColor: theme.colors.primary },
+          ]}
           onPress={handleUpdate}
+          disabled={loading}
         >
-          <Text style={tw`text-white text-center font-semibold`}>
-            Update Service Address
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={tw`text-white text-center font-semibold`}>
+              Update Service Address
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Footer Note */}
       <Text style={tw`text-xs text-gray-500 text-center mt-4 mb-6`}>
         You'll receive confirmation via email and SMS once the update is
-        processed
+        processed.
       </Text>
     </ScrollView>
   );
