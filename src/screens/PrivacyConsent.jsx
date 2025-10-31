@@ -142,7 +142,7 @@ const PrivacyConsent = () => {
                 tw`flex-1 border rounded-xl py-3 mr-2 items-center justify-center`,
                 { borderColor: theme.colors.primary },
               ]}
-              onPress={() => navigation.goBack()} 
+              onPress={() => navigation.goBack()}
             >
               <Text style={tw`font-semibold text-black`}>Decline</Text>
             </TouchableOpacity>
