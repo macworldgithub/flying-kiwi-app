@@ -321,6 +321,53 @@ export default function Home() {
               <Text style={tw`text-black font-medium`}>Set Auto-Pay</Text>
             </TouchableOpacity>
           </View>
+
+          <View style={tw`mx-2 mb-6`}>
+            <Text style={tw`font-semibold mb-3`}>Quick Actions</Text>
+
+            {[
+              {
+                title: "Bill Query",
+                subtitle: "View bills & dispute charges",
+                icon: "file-text",
+                screen: "BillQuery",
+              },
+              {
+                title: "Update Address",
+                subtitle: "Change your service address",
+                icon: "map-pin",
+                screen: "UpdateAddress",
+              },
+              {
+                title: "Coverage Check",
+                subtitle: "Check network availability",
+                icon: "wifi",
+                screen: "CoverageCheck",
+              },
+            ].map((item, i) => (
+              <TouchableOpacity
+                key={i}
+                style={tw`bg-white p-4 rounded-xl border border-gray-200 flex-row justify-between items-center mb-3`}
+                onPress={() => navigation.navigate(item.screen)}
+              >
+                <View style={tw`flex-row items-center`}>
+                  <Icon
+                    name={item.icon}
+                    size={22}
+                    color="blue"
+                    style={tw`mr-3`}
+                  />
+                  <View>
+                    <Text style={tw`text-black font-medium`}>{item.title}</Text>
+                    <Text style={tw`text-gray-500 text-xs mt-1`}>
+                      {item.subtitle}
+                    </Text>
+                  </View>
+                </View>
+                <ArrowRight size={20} color="black" />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </ScrollView>
 
