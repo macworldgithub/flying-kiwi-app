@@ -309,7 +309,7 @@ const Login = () => {
             { borderColor: theme.colors.primary },
           ]}
           onPress={() => {
-            navigation.navigate("SignUp");
+            navigation.navigate("ChatAI");
           }}
         >
           <Text
@@ -318,7 +318,7 @@ const Login = () => {
               { color: theme.colors.primary },
             ]}
           >
-            Sign Up
+            Chat AI
           </Text>
         </TouchableOpacity>
       </View>
