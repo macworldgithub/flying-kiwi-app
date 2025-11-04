@@ -908,6 +908,7 @@ const ChatScreen = ({ navigation }) => {
     return isValid;
   };
 
+  
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
 
@@ -915,22 +916,42 @@ const ChatScreen = ({ navigation }) => {
       .map(([key, value]) => `${key}: ${value}`)
       .join(", ");
 
-    setShowSignupForm(false);
-    // Reset form data
-    setFormData({
-      firstName: "",
-      surname: "",
-      email: "",
-      phone: "",
-      dob: "",
-      address: "",
-      suburb: "",
-      state: "",
-      postcode: "",
-      pin: "",
-    });
+    try {
+      setLoading(true);
+      // Store the form data before resetting
+      const formDataCopy = { ...formData };
 
-    await handleSend(formatted);
+      // Reset form data first
+      setFormData({
+        firstName: "",
+        surname: "",
+        email: "",
+        phone: "",
+        dob: "",
+        address: "",
+        suburb: "",
+        state: "",
+        postcode: "",
+        pin: "",
+      });
+
+      // Close the signup form
+      setShowSignupForm(false);
+
+      // Send the form data
+      await handleSend(formatted);
+
+      // After successful signup, show number selection
+      setTimeout(() => {
+        // This will trigger the number selection in handleSend
+        handleSend("Please show available numbers");
+      }, 1000);
+    } catch (error) {
+      console.error("Form submission error:", error);
+      Alert.alert("Error", "Failed to submit form. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignupIntent = async (userMessage) => {
@@ -1134,34 +1155,115 @@ const ChatScreen = ({ navigation }) => {
   // };
   const handleNumberSelect = async (number) => {
     setShowNumberButtons(false);
-    await handleSend(number);
 
     try {
+      // First, send the selected number
+      await handleSend(number);
+
+      // Then fetch available plans
       const response = await fetch(
         "https://bele.omnisuiteai.com/api/v1/plans",
         {
           method: "GET",
           headers: {
             accept: "application/json",
+            Authorization: `Bearer ${await AsyncStorage.getItem(
+              "access_token"
+            )}`,
           },
         }
       );
 
-      if (!response.ok) throw new Error("Failed to fetch plans");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch plans");
+      }
 
       const data = await response.json();
-      setPlans(data.data || []);
-      setShowPlans(true);
+
+      if (data.data && data.data.length > 0) {
+        setPlans(data.data);
+        setShowPlans(true);
+
+        // Add a bot message about plan selection
+        const planMessage = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: "bot",
+          text: `Great! Here are the available plans for number ${number}. Please select one to proceed with the payment.`,
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+        setChat((prev) => [...prev, planMessage]);
+      } else {
+        throw new Error("No plans available at the moment");
+      }
     } catch (error) {
-      console.error("Error fetching plans:", error);
-      Alert.alert("Error", "Failed to load plans. Please try again.");
+      console.error("Error in number selection:", error);
+
+      // Add error message to chat
+      const errorMessage = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "bot",
+        text: `Sorry, we couldn't load the plans. ${error.message}`,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setChat((prev) => [...prev, errorMessage]);
+
+      // Show the number buttons again to allow retry
+      setShowNumberButtons(true);
     }
   };
 
-  const handlePlanSelect = (plan) => {
-    setSelectedPlan(plan);
-    setShowPlans(false);
-    setShowPayment(true);
+  const handlePlanSelect = async (plan) => {
+    try {
+      setLoading(true);
+      setSelectedPlan(plan);
+      setShowPlans(false);
+
+      // Add a message about the selected plan
+      const planSelectedMessage = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "bot",
+        text: `You've selected the ${plan.name} plan for $${plan.price}/month. Please enter your payment details to proceed.`,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setChat((prev) => [...prev, planSelectedMessage]);
+
+      // Show payment form after a short delay
+      setTimeout(() => {
+        setShowPayment(true);
+        // Scroll to bottom to show the payment form
+        if (scrollViewRef.current) {
+          scrollViewRef.current.scrollToEnd({ animated: true });
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Error selecting plan:", error);
+
+      const errorMessage = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "bot",
+        text: `Sorry, we couldn't process your plan selection. ${
+          error.message || "Please try again."
+        }`,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setChat((prev) => [...prev, errorMessage]);
+      setShowPlans(true);
+    } finally {
+      setLoading(false);
+    }
   };
   const clearSession = async () => {
     setSessionId(null);
@@ -1294,6 +1396,168 @@ const ChatScreen = ({ navigation }) => {
                 ]}
               >
                 <ActivityIndicator size="small" color="#000" />
+              </View>
+            </View>
+          )}
+
+          {/* Number Selection Buttons */}
+          {showNumberButtons && numberOptions.length > 0 && (
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`w-8 h-8 rounded-full items-center justify-center mr-2`}
+              >
+                <Ionicons name="sparkles" size={18} color="white" />
+              </LinearGradient>
+              <View
+                style={[
+                  tw`p-3 rounded-2xl`,
+                  { backgroundColor: "white", maxWidth: "85%" },
+                ]}
+              >
+                <Text style={tw`text-black mb-2`}>Select a number:</Text>
+                <View style={tw`flex-row flex-wrap`}>
+                  {numberOptions.map((number, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[tw`px-4 py-2 m-1 bg-blue-500 rounded-full`]}
+                      onPress={() => handleNumberSelect(number)}
+                    >
+                      <Text style={tw`text-white`}>{number}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Plans Selection */}
+          {showPlans && plans.length > 0 && (
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`w-8 h-8 rounded-full items-center justify-center mr-2`}
+              >
+                <Ionicons name="sparkles" size={18} color="white" />
+              </LinearGradient>
+              <View
+                style={[
+                  tw`p-3 rounded-2xl`,
+                  { backgroundColor: "white", maxWidth: "85%" },
+                ]}
+              >
+                <Text style={tw`text-black mb-2`}>Select a plan:</Text>
+                {plans.map((plan) => (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[tw`p-3 m-1 border border-gray-200 rounded-lg`]}
+                    onPress={() => handlePlanSelect(plan)}
+                  >
+                    <Text style={tw`font-semibold`}>{plan.name}</Text>
+                    <Text>${plan.price}/month</Text>
+                    {plan.description && (
+                      <Text style={tw`text-sm text-gray-600`}>
+                        {plan.description}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Payment Form */}
+          {showPayment && selectedPlan && (
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`w-8 h-8 rounded-full items-center justify-center mr-2`}
+              >
+                <Ionicons name="card" size={18} color="white" />
+              </LinearGradient>
+              <View
+                style={[
+                  tw`p-3 rounded-2xl`,
+                  { backgroundColor: "white", maxWidth: "85%" },
+                ]}
+              >
+                <PaymentCard
+                  onTokenReceived={(token) => {
+                    setPaymentToken(token);
+                    setShowPayment(false);
+                    setShowTokenCard(true);
+                  }}
+                  onClose={() => {
+                    setShowPayment(false);
+                    setShowPlans(true);
+                  }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Token Confirmation */}
+          {showTokenCard && paymentToken && (
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`w-8 h-8 rounded-full items-center justify-center mr-2`}
+              >
+                <Ionicons name="shield-checkmark" size={18} color="white" />
+              </LinearGradient>
+              <View
+                style={[
+                  tw`p-3 rounded-2xl`,
+                  { backgroundColor: "white", maxWidth: "85%" },
+                ]}
+              >
+                <TokenCard
+                  token={paymentToken}
+                  onSuccess={() => {
+                    setShowTokenCard(false);
+                    setShowPaymentProcessCard(true);
+                  }}
+                  onClose={() => {
+                    setShowTokenCard(false);
+                    setShowPayment(true);
+                  }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Payment Processing */}
+          {showPaymentProcessCard && selectedPlan && (
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`w-8 h-8 rounded-full items-center justify-center mr-2`}
+              >
+                <Ionicons name="card" size={18} color="white" />
+              </LinearGradient>
+              <View
+                style={[
+                  tw`p-3 rounded-2xl`,
+                  { backgroundColor: "white", maxWidth: "85%" },
+                ]}
+              >
+                <PaymentProcessCard
+                  plan={selectedPlan}
+                  onClose={() => {
+                    setShowPaymentProcessCard(false);
+                    // Reset the flow if needed
+                  }}
+                />
               </View>
             </View>
           )}
