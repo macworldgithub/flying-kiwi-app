@@ -322,6 +322,20 @@ export default function Home() {
             </TouchableOpacity>
           </View>
 
+          <View style={tw` my-2`}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("ChatAI")}
+              style={[
+                tw`py-3 rounded-xl mb-4`,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            >
+              <Text style={tw`text-center text-white font-semibold`}>
+                Chat With Ai
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={tw`mx-2 mb-6`}>
             <Text style={tw`font-semibold mb-3`}>Quick Actions</Text>
 
