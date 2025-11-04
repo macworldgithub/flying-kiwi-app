@@ -785,6 +785,9 @@ import { theme } from "../utils/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { PaymentProcessCard } from "../components/PaymentProcessCard";
+import { TokenCard } from "../components/TokenCard";
+import { PaymentCard } from "../components/PaymentCard";
 
 const API_BASE_URL = "https://bele.omnisuiteai.com";
 
@@ -810,6 +813,13 @@ const ChatScreen = ({ navigation }) => {
   const [dobDateObj, setDobDateObj] = useState(new Date(1990, 0, 1));
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 600;
+  const [showPayment, setShowPayment] = useState(false);
+  const [showTokenCard, setShowTokenCard] = useState(false);
+  const [showPaymentProcessCard, setShowPaymentProcessCard] = useState(false);
+  const [paymentToken, setPaymentToken] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [showPlans, setShowPlans] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -1096,6 +1106,63 @@ const ChatScreen = ({ navigation }) => {
     return numbers ? numbers.slice(0, 5) : [];
   };
 
+  // Add these handler functions
+  // const handleNumberSelect = async (number) => {
+  //   setShowNumberButtons(false);
+  //   await handleSend(number);
+
+  //   try {
+  //     const response = await fetch(
+  //       "https://bele.omnisuiteai.com/api/v1/plans",
+  //       {
+  //         method: "GET",
+  //         headers: {
+  //           accept: "application/json",
+  //         },
+  //       }
+  //     );
+
+  //     if (!response.ok) throw new Error("Failed to fetch plans");
+
+  //     const data = await response.json();
+  //     setPlans(data.data || []);
+  //     setShowPlans(true);
+  //   } catch (error) {
+  //     console.error("Error fetching plans:", error);
+  //     Alert.alert("Error", "Failed to load plans. Please try again.");
+  //   }
+  // };
+  const handleNumberSelect = async (number) => {
+    setShowNumberButtons(false);
+    await handleSend(number);
+
+    try {
+      const response = await fetch(
+        "https://bele.omnisuiteai.com/api/v1/plans",
+        {
+          method: "GET",
+          headers: {
+            accept: "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch plans");
+
+      const data = await response.json();
+      setPlans(data.data || []);
+      setShowPlans(true);
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      Alert.alert("Error", "Failed to load plans. Please try again.");
+    }
+  };
+
+  const handlePlanSelect = (plan) => {
+    setSelectedPlan(plan);
+    setShowPlans(false);
+    setShowPayment(true);
+  };
   const clearSession = async () => {
     setSessionId(null);
     try {
@@ -1430,6 +1497,7 @@ const ChatScreen = ({ navigation }) => {
         )}
 
         {/* Number Selection Buttons */}
+        {/* Number Selection Buttons */}
         {showNumberButtons && (
           <View
             style={tw`flex-row flex-wrap gap-2 justify-center p-2 bg-white mx-4 mb-2 rounded-xl`}
@@ -1437,18 +1505,133 @@ const ChatScreen = ({ navigation }) => {
             {numberOptions.map((number, index) => (
               <TouchableOpacity
                 key={index}
-                style={tw`px-4 py-2 bg-blue-500 rounded-full`}
-                onPress={() => {
-                  setShowNumberButtons(false);
-                  handleSend(number);
-                }}
+                onPress={() => handleNumberSelect(number)}
+                style={[styles.button, styles.submitButton]}
               >
-                <Text style={tw`text-white`}>{number}</Text>
+                <Text style={styles.buttonText}>{number}</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
+        {/* Plans Selection */}
+        {showPlans && (
+          <View style={[styles.formContainer, { backgroundColor: "white" }]}>
+            <Text style={tw`text-lg font-semibold mb-3 text-black`}>
+              Select a Plan
+            </Text>
+            <ScrollView style={{ maxHeight: 200 }}>
+              {plans.map((plan, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.button, styles.submitButton, tw`mb-2`]}
+                  onPress={() => handlePlanSelect(plan)}
+                >
+                  <Text style={styles.buttonText}>
+                    {plan.planName} - ${plan.price}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Payment Flow Components */}
+        {showPayment && selectedPlan && (
+          <View style={styles.formContainer}>
+            <PaymentCard
+              onTokenReceived={(token) => {
+                setPaymentToken(token);
+                setShowPayment(false);
+                setShowTokenCard(true);
+              }}
+              onClose={() => setShowPayment(false)}
+            />
+          </View>
+        )}
+
+        {showTokenCard && paymentToken && (
+          <View style={styles.formContainer}>
+            <TokenCard
+              token={paymentToken}
+              onSuccess={() => {
+                setShowTokenCard(false);
+                setPaymentToken(null);
+                setShowPaymentProcessCard(true);
+              }}
+              onClose={() => setShowTokenCard(false)}
+            />
+          </View>
+        )}
+
+        {showPaymentProcessCard && (
+          <View style={styles.formContainer}>
+            <PaymentProcessCard
+              onClose={() => {
+                setShowPaymentProcessCard(false);
+                // You can add any additional cleanup or success message here
+              }}
+            />
+          </View>
+        )}
+        {showPlans && (
+          <View style={[styles.formContainer, { backgroundColor: "white" }]}>
+            <Text style={tw`text-lg font-semibold mb-3 text-black`}>
+              Select a Plan
+            </Text>
+            <ScrollView style={{ maxHeight: 200 }}>
+              {plans.map((plan, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.button, styles.submitButton, tw`mb-2`]}
+                  onPress={() => handlePlanSelect(plan)}
+                >
+                  <Text style={styles.buttonText}>
+                    {plan.planName} - ${plan.price}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {showPayment && selectedPlan && (
+          <View style={styles.formContainer}>
+            <PaymentCard
+              onTokenReceived={(token) => {
+                setPaymentToken(token);
+                setShowPayment(false);
+                setShowTokenCard(true);
+              }}
+              onClose={() => setShowPayment(false)}
+            />
+          </View>
+        )}
+
+        {showTokenCard && paymentToken && (
+          <View style={styles.formContainer}>
+            <TokenCard
+              token={paymentToken}
+              onSuccess={() => {
+                setShowTokenCard(false);
+                setPaymentToken(null);
+                setShowPaymentProcessCard(true);
+              }}
+              onClose={() => setShowTokenCard(false)}
+            />
+          </View>
+        )}
+
+        {showPaymentProcessCard && (
+          <View style={styles.formContainer}>
+            <PaymentProcessCard
+              onClose={() => {
+                setShowPaymentProcessCard(false);
+                // You can add any additional cleanup or success message here
+              }}
+            />
+          </View>
+        )}
         {/* Message Input Area */}
         <View
           style={[
