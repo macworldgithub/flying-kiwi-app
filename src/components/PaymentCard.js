@@ -159,6 +159,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import tw from "tailwind-react-native-classnames";
