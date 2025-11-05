@@ -22,14 +22,18 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
     setLoading(true);
 
     try {
+      console.log("[TokenCard] Submitting token to backend flow", inputToken);
       // Simulate API call to add payment method
       setTimeout(() => {
         Alert.alert("Success", "Payment method added successfully!");
-        onSuccess();
+        const result = { success: true, step: "token_confirmed", token: inputToken };
+        console.log("[TokenCard] Token confirmed", result);
+        onSuccess && onSuccess(result);
         setLoading(false);
       }, 1500);
     } catch (error) {
       Alert.alert("Error", "Failed to add payment method");
+      console.log("[TokenCard] Token submission failed", error?.message || error);
       setLoading(false);
     }
   };

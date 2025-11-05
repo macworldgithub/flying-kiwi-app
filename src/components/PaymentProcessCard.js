@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import tw from "tailwind-react-native-classnames";
 
-export const PaymentProcessCard = ({ onClose }) => {
+export const PaymentProcessCard = ({ onProcessed, onClose }) => {
   const [formData, setFormData] = useState({
     custNo: "526691",
     amount: "",
@@ -28,14 +28,21 @@ export const PaymentProcessCard = ({ onClose }) => {
     setLoading(true);
 
     try {
+      console.log("[PaymentProcessCard] Processing payment", formData);
       // Simulate payment processing
       setTimeout(() => {
         Alert.alert("Success", "Payment processed successfully!");
-        onClose();
+        const result = { success: true, step: "payment_processed", message: "Payment processed successfully" };
+        console.log("[PaymentProcessCard] Payment processed", result);
+        onProcessed && onProcessed(result);
+        onClose && onClose();
         setLoading(false);
       }, 2000);
     } catch (error) {
       Alert.alert("Error", "Payment processing failed");
+      const result = { success: false, step: "payment_failed", message: error?.message || "Payment processing failed" };
+      console.log("[PaymentProcessCard] Payment failed", result);
+      onProcessed && onProcessed(result);
       setLoading(false);
     }
   };

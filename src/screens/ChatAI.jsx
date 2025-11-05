@@ -52,6 +52,10 @@ const ChatScreen = ({ navigation }) => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [plans, setPlans] = useState([]);
   const [showPlans, setShowPlans] = useState(false);
+  const [hasSelectedNumber, setHasSelectedNumber] = useState(false);
+  const [selectedNumber, setSelectedNumber] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [showSelectionSummary, setShowSelectionSummary] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     surname: "",
@@ -263,13 +267,13 @@ const ChatScreen = ({ navigation }) => {
       setChat((prev) => [...prev, botMsg]);
       // Handle special cases (native UI) regardless of appending message
       const willHandleNatively =
-        isDetailsRequest(botText) || isNumberSelection(botText);
+        isDetailsRequest(botText) || (isNumberSelection(botText) && !hasSelectedNumber);
       if (willHandleNatively) {
         if (isDetailsRequest(botText)) {
           // show native signup form
           setShowSignupForm(true);
           setShowNumberButtons(false);
-        } else if (isNumberSelection(botText)) {
+        } else if (isNumberSelection(botText) && !hasSelectedNumber) {
           const numbers = extractNumbers(botText);
           setNumberOptions(numbers);
           setShowNumberButtons(true);
@@ -278,6 +282,20 @@ const ChatScreen = ({ navigation }) => {
       } else {
         setShowSignupForm(false);
         setShowNumberButtons(false);
+        // Only show the selection summary in the stage between number selection and plan selection
+        if (
+          hasSelectedNumber &&
+          !selectedPlan &&
+          !showPayment &&
+          !showTokenCard &&
+          !showPaymentProcessCard
+        ) {
+          const cidMatch = botText.match(/customer\s*id\s*is\s*(\d+)/i);
+          if (cidMatch && cidMatch[1]) {
+            setSelectedCustomerId(cidMatch[1]);
+          }
+          setShowSelectionSummary(true);
+        }
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -315,11 +333,10 @@ const ChatScreen = ({ navigation }) => {
     );
   };
   const isNumberSelection = (text) => {
-    return (
-      text.toLowerCase().includes("choose") ||
-      text.toLowerCase().includes("select") ||
-      text.toLowerCase().includes("option")
-    );
+    const lower = text.toLowerCase();
+    const isPrompt = /(choose|select|option|pick|let me know which)/i.test(lower);
+    const isConfirmation = /\bselected\b/.test(lower);
+    return isPrompt && !isConfirmation;
   };
   const extractNumbers = (text) => {
     const numbers = text.match(/\d+/g);
@@ -327,6 +344,9 @@ const ChatScreen = ({ navigation }) => {
   };
   const handleNumberSelect = async (number) => {
     setShowNumberButtons(false);
+    setHasSelectedNumber(true);
+    setSelectedNumber(number);
+    setShowSelectionSummary(true);
     try {
       // First, send the selected number (this will append backend's bot message)
       await handleSend(number);
@@ -379,6 +399,18 @@ const ChatScreen = ({ navigation }) => {
       setLoading(true);
       setSelectedPlan(plan);
       setShowPlans(false);
+      // Hide number/Customer ID summary once plan selection begins
+      setShowSelectionSummary(false);
+      // Also clear the flag so it doesn't reappear on later bot messages
+      setHasSelectedNumber(false);
+      // Send selected plan to backend as a string
+      try {
+        const planString = JSON.stringify(plan);
+        handleSend(planString);
+      } catch (e) {
+        // fallback: send basic string if serialization fails
+        handleSend(`Selected plan: ${plan?.name || plan?.planName || "Unknown"} - $${plan?.price ?? ""}/month`);
+      }
       // Add a message about the selected plan (or rely on backend if sending to it)
       const planSelectedMessage = {
         id: Date.now() + Math.floor(Math.random() * 1000),
@@ -472,11 +504,13 @@ const ChatScreen = ({ navigation }) => {
       {/* Chat Messages */}
       <KeyboardAvoidingView
         style={tw`flex-1`}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 140}
       >
         <ScrollView
           ref={scrollViewRef}
           contentContainerStyle={tw`px-4 pb-6`}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() =>
             scrollViewRef.current?.scrollToEnd({ animated: true })
@@ -575,6 +609,34 @@ const ChatScreen = ({ navigation }) => {
               </View>
             </View>
           )}
+          {/* Selection Summary (non-interactive) */}
+          {showSelectionSummary && hasSelectedNumber && (
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}> 
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`w-8 h-8 rounded-full items-center justify-center mr-2`}
+              >
+                <Ionicons name="sparkles" size={18} color="white" />
+              </LinearGradient>
+              <View
+                style={[
+                  tw`p-3 rounded-2xl`,
+                  { backgroundColor: "white", maxWidth: "85%" },
+                ]}
+              >
+                <Text style={tw`text-black mb-1`}>Your selected number is:</Text>
+                <Text style={tw`text-black font-semibold mb-2`}>{selectedNumber}</Text>
+                {selectedCustomerId ? (
+                  <>
+                    <Text style={tw`text-black mb-1`}>Customer ID:</Text>
+                    <Text style={tw`text-black font-semibold`}>{selectedCustomerId}</Text>
+                  </>
+                ) : null}
+              </View>
+            </View>
+          )}
           {/* Plans Selection */}
           {showPlans && plans.length > 0 && (
             <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
@@ -593,9 +655,9 @@ const ChatScreen = ({ navigation }) => {
                 ]}
               >
                 <Text style={tw`text-black mb-2`}>Select a plan:</Text>
-                {plans.map((plan) => (
+                {plans.map((plan, index) => (
                   <TouchableOpacity
-                    key={plan.id}
+                    key={`${plan.id || plan.planId || plan.name || 'plan'}-${index}`}
                     style={[tw`p-3 m-1 border border-gray-200 rounded-lg`]}
                     onPress={() => handlePlanSelect(plan)}
                   >
@@ -810,6 +872,9 @@ const ChatScreen = ({ navigation }) => {
                 setPaymentToken(token);
                 setShowPayment(false);
                 setShowTokenCard(true);
+                console.log("[ChatAI] Token received from PaymentCard", token);
+                // Inform assistant/backend of step
+                handleSend("payment token received");
               }}
               onClose={() => {
                 setShowPayment(false);
@@ -822,10 +887,12 @@ const ChatScreen = ({ navigation }) => {
           <View style={styles.formContainer}>
             <TokenCard
               token={paymentToken}
-              onSuccess={() => {
+              onSuccess={(result) => {
                 setShowTokenCard(false);
                 setShowPaymentProcessCard(true);
                 setPaymentToken(null);
+                console.log("[ChatAI] Token step completed", result);
+                handleSend("payment token confirmed");
               }}
               onClose={() => {
                 setShowTokenCard(false);
@@ -838,8 +905,17 @@ const ChatScreen = ({ navigation }) => {
           <View style={styles.formContainer}>
             <PaymentProcessCard
               plan={selectedPlan}
+              onProcessed={(result) => {
+                console.log("[ChatAI] Payment process result", result);
+                const messageToSend = result?.message || (result?.success ? "payment processed successfully" : "payment failed");
+                handleSend(messageToSend);
+                // Ensure the selection summary card is hidden after processing
+                setShowSelectionSummary(false);
+              }}
               onClose={() => {
                 setShowPaymentProcessCard(false);
+                // Hide summary on close as well
+                setShowSelectionSummary(false);
               }}
             />
           </View>
