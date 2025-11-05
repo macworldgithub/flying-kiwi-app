@@ -305,7 +305,7 @@ export default function Home() {
 
           <View style={tw`flex-row mt-4`}>
             {/* 🔹 Pay Now opens modal */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[
                 tw`flex-1 py-2 rounded-xl mr-2 items-center`,
                 { backgroundColor: "#007BFF" },
@@ -313,7 +313,7 @@ export default function Home() {
               onPress={() => setShowPaymentModal(true)}
             >
               <Text style={tw`text-white font-medium`}>Pay Now</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <TouchableOpacity
               style={tw`flex-1 border border-gray-300 py-2 rounded-xl items-center`}
