@@ -47,7 +47,7 @@ const BillQuery = ({ navigation }) => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <ScrollView
-            contentContainerStyle={tw`px-4 pt-4 pb-8`}
+            contentContainerStyle={tw`flex-grow px-4 pt-4 pb-20`}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
