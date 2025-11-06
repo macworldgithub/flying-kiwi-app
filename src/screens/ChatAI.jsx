@@ -502,7 +502,7 @@ const ChatScreen = ({ navigation }) => {
         </Text>
       </View>
       {/* Chat Messages */}
-      <KeyboardAvoidingView
+      {/* <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 140}
@@ -512,6 +512,22 @@ const ChatScreen = ({ navigation }) => {
           contentContainerStyle={tw`px-4 pb-6`}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={() =>
+            scrollViewRef.current?.scrollToEnd({ animated: true })
+          }
+        > */}
+
+
+<KeyboardAvoidingView
+        style={tw`flex-1`}
+        behavior={"padding"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -55}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={tw`px-4 pb-6`}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() =>
             scrollViewRef.current?.scrollToEnd({ animated: true })
           }
