@@ -526,7 +526,7 @@ export default function Home() {
 
     <script>
       QuickstreamAPI.init({
-        publishableApiKey: 'TIAB_PUB_sawvcp2cgmdfiyehcysqpe6qh6ajk4pbhgasz3t9tetu7t3r9p767ygsmmxm'
+        publishableApiKey: 'TIAB_PUB_jqiyv6fcvvskukbm96reinkd2g97d8g8pip6tf7mazu8u6kyxds2gme5z5aa'
       });
 
       let trustedFrame = null;

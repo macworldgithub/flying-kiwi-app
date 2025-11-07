@@ -68,6 +68,19 @@ const ChatScreen = ({ navigation }) => {
     postcode: "",
     pin: "",
   });
+  // Add this state to store form data for activation
+  const [storedFormData, setStoredFormData] = useState({
+    firstName: "",
+    surname: "",
+    email: "",
+    phone: "",
+    dob: "",
+    address: "",
+    suburb: "",
+    state: "",
+    postcode: "",
+    pin: "",
+  });
   const [formErrors, setFormErrors] = useState({});
   const scrollViewRef = useRef();
   // Form handling
@@ -144,9 +157,19 @@ const ChatScreen = ({ navigation }) => {
       .join(", ");
     try {
       setLoading(true);
-      // Store the form data before resetting
-      const formDataCopy = { ...formData };
-      // Reset form data first
+
+      // 🔥 STORE FORM DATA FOR ACTIVATION
+      setStoredFormData({ ...formData });
+      console.log("✅ Stored form data for activation:", formData);
+
+      // Also store in AsyncStorage for persistence
+      await AsyncStorage.setItem(
+        "customer_form_data",
+        JSON.stringify(formData)
+      );
+      console.log("✅ Form data saved to AsyncStorage");
+
+      // Reset form data for UI
       setFormData({
         firstName: "",
         surname: "",
@@ -159,13 +182,15 @@ const ChatScreen = ({ navigation }) => {
         postcode: "",
         pin: "",
       });
+
       // Close the signup form
       setShowSignupForm(false);
-      // Send the form data
+
+      // Send the form data to chatbot
       await handleSend(formatted);
+
       // After successful signup, show number selection
       setTimeout(() => {
-        // This will trigger the number selection in handleSend
         handleSend("Please show available numbers");
       }, 1000);
     } catch (error) {
@@ -196,6 +221,24 @@ const ChatScreen = ({ navigation }) => {
     }
     return false;
   };
+  // Load session and form data on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem("chat_session_id");
+        if (stored) setSessionId(stored);
+
+        // 🔥 LOAD STORED FORM DATA
+        const storedForm = await AsyncStorage.getItem("customer_form_data");
+        if (storedForm) {
+          setStoredFormData(JSON.parse(storedForm));
+          console.log("✅ Loaded stored form data:", JSON.parse(storedForm));
+        }
+      } catch (e) {
+        console.log("Error loading stored data:", e);
+      }
+    })();
+  }, []);
   const handleSend = async (msgText, retryWithoutSession = false) => {
     if (!msgText || loading) return;
     const userMsg = {
@@ -245,6 +288,13 @@ const ChatScreen = ({ navigation }) => {
         );
       }
       const data = await response.json();
+      // 🔥 ADD THIS CODE HERE - Store customer ID when received
+      if (data?.custNo) {
+        setSelectedCustomerId(data.custNo);
+        await AsyncStorage.setItem("customer_id", data.custNo); // Store for later use
+        console.log("Stored customer_id:", data.custNo);
+      }
+
       if (!sessionId && !retryWithoutSession && data.session_id) {
         setSessionId(data.session_id);
         try {
@@ -267,7 +317,8 @@ const ChatScreen = ({ navigation }) => {
       setChat((prev) => [...prev, botMsg]);
       // Handle special cases (native UI) regardless of appending message
       const willHandleNatively =
-        isDetailsRequest(botText) || (isNumberSelection(botText) && !hasSelectedNumber);
+        isDetailsRequest(botText) ||
+        (isNumberSelection(botText) && !hasSelectedNumber);
       if (willHandleNatively) {
         if (isDetailsRequest(botText)) {
           // show native signup form
@@ -293,6 +344,9 @@ const ChatScreen = ({ navigation }) => {
           const cidMatch = botText.match(/customer\s*id\s*is\s*(\d+)/i);
           if (cidMatch && cidMatch[1]) {
             setSelectedCustomerId(cidMatch[1]);
+            // Also store it in AsyncStorage here as backup
+            await AsyncStorage.setItem("customer_id", cidMatch[1]);
+            console.log("Stored customer_id from regex:", cidMatch[1]);
           }
           setShowSelectionSummary(true);
         }
@@ -334,7 +388,9 @@ const ChatScreen = ({ navigation }) => {
   };
   const isNumberSelection = (text) => {
     const lower = text.toLowerCase();
-    const isPrompt = /(choose|select|option|pick|let me know which)/i.test(lower);
+    const isPrompt = /(choose|select|option|pick|let me know which)/i.test(
+      lower
+    );
     const isConfirmation = /\bselected\b/.test(lower);
     return isPrompt && !isConfirmation;
   };
@@ -409,7 +465,11 @@ const ChatScreen = ({ navigation }) => {
         handleSend(planString);
       } catch (e) {
         // fallback: send basic string if serialization fails
-        handleSend(`Selected plan: ${plan?.name || plan?.planName || "Unknown"} - $${plan?.price ?? ""}/month`);
+        handleSend(
+          `Selected plan: ${plan?.name || plan?.planName || "Unknown"} - $${
+            plan?.price ?? ""
+          }/month`
+        );
       }
       // Add a message about the selected plan (or rely on backend if sending to it)
       const planSelectedMessage = {
@@ -449,6 +509,135 @@ const ChatScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  // Add this function to your ChatScreen
+  // const handleActivateOrder = async () => {
+  //   try {
+  //     const token = await AsyncStorage.getItem("access_token");
+  //     const paymentId = await AsyncStorage.getItem("payment_id");
+  //     const customerId = await AsyncStorage.getItem("customer_id");
+
+  //     // 🔥 GET STORED FORM DATA
+  //     const storedData = await AsyncStorage.getItem("customer_form_data");
+  //     const formDataForActivation = storedData
+  //       ? JSON.parse(storedData)
+  //       : storedFormData;
+
+  //     console.log("🔍 Using form data for activation:", formDataForActivation);
+
+  //     if (!paymentId) {
+  //       console.warn("⚠️ No payment_id found, activation might fail");
+  //     }
+
+  //     console.log("Activation data - Payment ID:", paymentId);
+
+  //     const activationData = {
+  //       number: selectedNumber,
+  //       cust: {
+  //         custNo: customerId || selectedCustomerId,
+  //         suburb: formDataForActivation.suburb || "",
+  //         postcode: formDataForActivation.postcode || "",
+  //         address: formDataForActivation.address || "",
+  //         email: formDataForActivation.email || "",
+  //       },
+  //       planNo: selectedPlan?.planNo || selectedPlan?.id,
+  //       paymentId: paymentId,
+  //       simNo: "",
+  //     };
+
+  //     console.log("✅ Activation payload:", activationData);
+
+  //     const response = await fetch(
+  //       "https://bele.omnisuiteai.com/api/v1/orders/activate",
+  //       {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //         body: JSON.stringify(activationData),
+  //       }
+  //     );
+
+  //     const result = await response.json();
+  //     console.log("Activation result:", result);
+
+  //     if (response.ok) {
+  //       handleSend("Order successfully activated!");
+  //       // Clear stored payment data
+  //       await AsyncStorage.multiRemove([
+  //         "payment_method_id",
+  //         "payment_id",
+  //         "customer_form_data",
+  //       ]);
+  //     } else {
+  //       handleSend(`Activation failed: ${result.message || "Unknown error"}`);
+  //     }
+  //   } catch (err) {
+  //     console.error("Activation failed", err);
+  //     handleSend("Order activation failed. Please try again.");
+  //   }
+  // };
+  const handleActivateOrder = async () => {
+    try {
+      const token = await AsyncStorage.getItem("access_token");
+      const customerId = await AsyncStorage.getItem("customer_id");
+
+      // 🔥 GET STORED FORM DATA
+      const storedData = await AsyncStorage.getItem("customer_form_data");
+      const formDataForActivation = storedData
+        ? JSON.parse(storedData)
+        : storedFormData;
+
+      console.log("🔍 Using form data for activation:", formDataForActivation);
+
+      // 🔥 MATCH WEB VERSION EXACTLY - NO PAYMENT ID!
+      const activationData = {
+        number: selectedNumber,
+        cust: {
+          custNo: customerId || selectedCustomerId,
+          suburb: formDataForActivation.suburb || "",
+          postcode: formDataForActivation.postcode || "",
+          address: formDataForActivation.address || "",
+          email: formDataForActivation.email || "",
+        },
+        planNo: String(selectedPlan?.planNo || selectedPlan?.id || ""), // 🔥 Convert to string like web
+        simNo: "",
+      };
+
+      console.log("✅ Activation payload (matching web):", activationData);
+
+      const response = await fetch(
+        "https://bele.omnisuiteai.com/api/v1/orders/activate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(activationData),
+        }
+      );
+
+      const result = await response.json();
+      console.log("Activation result:", result);
+
+      if (response.ok) {
+        handleSend("Order successfully activated!");
+        // Clear stored payment data
+        await AsyncStorage.multiRemove([
+          "payment_method_id",
+          "payment_id",
+          "customer_form_data",
+        ]);
+      } else {
+        handleSend(`Activation failed: ${result.message || "Unknown error"}`);
+      }
+    } catch (err) {
+      console.error("Activation failed", err);
+      handleSend("Order activation failed. Please try again.");
+    }
+  };
   const clearSession = async () => {
     setSessionId(null);
     try {
@@ -474,6 +663,7 @@ const ChatScreen = ({ navigation }) => {
   const handleIosCancel = () => {
     setShowDatePicker(false);
   };
+
   // Load session on mount
   useEffect(() => {
     (async () => {
@@ -485,6 +675,7 @@ const ChatScreen = ({ navigation }) => {
       }
     })();
   }, []);
+
   return (
     <LinearGradient
       colors={theme.gradients.splash}
@@ -517,8 +708,7 @@ const ChatScreen = ({ navigation }) => {
           }
         > */}
 
-
-<KeyboardAvoidingView
+      <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={"padding"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -55}
@@ -627,7 +817,7 @@ const ChatScreen = ({ navigation }) => {
           )}
           {/* Selection Summary (non-interactive) */}
           {showSelectionSummary && hasSelectedNumber && (
-            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}> 
+            <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
               <LinearGradient
                 colors={theme.AIgradients.linear}
                 start={{ x: 0, y: 0 }}
@@ -642,12 +832,18 @@ const ChatScreen = ({ navigation }) => {
                   { backgroundColor: "white", maxWidth: "85%" },
                 ]}
               >
-                <Text style={tw`text-black mb-1`}>Your selected number is:</Text>
-                <Text style={tw`text-black font-semibold mb-2`}>{selectedNumber}</Text>
+                <Text style={tw`text-black mb-1`}>
+                  Your selected number is:
+                </Text>
+                <Text style={tw`text-black font-semibold mb-2`}>
+                  {selectedNumber}
+                </Text>
                 {selectedCustomerId ? (
                   <>
                     <Text style={tw`text-black mb-1`}>Customer ID:</Text>
-                    <Text style={tw`text-black font-semibold`}>{selectedCustomerId}</Text>
+                    <Text style={tw`text-black font-semibold`}>
+                      {selectedCustomerId}
+                    </Text>
                   </>
                 ) : null}
               </View>
@@ -673,7 +869,9 @@ const ChatScreen = ({ navigation }) => {
                 <Text style={tw`text-black mb-2`}>Select a plan:</Text>
                 {plans.map((plan, index) => (
                   <TouchableOpacity
-                    key={`${plan.id || plan.planId || plan.name || 'plan'}-${index}`}
+                    key={`${
+                      plan.id || plan.planId || plan.name || "plan"
+                    }-${index}`}
                     style={[tw`p-3 m-1 border border-gray-200 rounded-lg`]}
                     onPress={() => handlePlanSelect(plan)}
                   >
@@ -923,10 +1121,19 @@ const ChatScreen = ({ navigation }) => {
               plan={selectedPlan}
               onProcessed={(result) => {
                 console.log("[ChatAI] Payment process result", result);
-                const messageToSend = result?.message || (result?.success ? "payment processed successfully" : "payment failed");
+                const messageToSend =
+                  result?.message ||
+                  (result?.success
+                    ? "payment processed successfully"
+                    : "payment failed");
                 handleSend(messageToSend);
                 // Ensure the selection summary card is hidden after processing
                 setShowSelectionSummary(false);
+
+                // 🔥 ADD THIS PART - Call activation after successful payment
+                if (result.success) {
+                  handleActivateOrder(); // This triggers activation
+                }
               }}
               onClose={() => {
                 setShowPaymentProcessCard(false);
