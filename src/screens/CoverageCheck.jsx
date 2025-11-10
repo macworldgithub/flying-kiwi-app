@@ -176,6 +176,7 @@ import {
   ScrollView,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import tw from "tailwind-react-native-classnames";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -183,10 +184,11 @@ import { ArrowLeft } from "lucide-react-native";
 import { theme } from "../utils/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../utils/config";
+
 const CoverageCheck = ({ navigation }) => {
   const [zip, setZip] = useState("");
-
-  const quickZips = ["12345", "6789", "1111", "9999"];
+  const [coverageData, setCoverageData] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleCheck = async () => {
     if (!zip) {
@@ -194,11 +196,12 @@ const CoverageCheck = ({ navigation }) => {
       return;
     }
 
+    setLoading(true);
+    setCoverageData(null);
+
     try {
       const response = await axios.get(`${API_BASE_URL}coverage/${zip}`);
-
-      // Show message coming from backend
-      alert(response.data?.message || "Success");
+      setCoverageData(response.data);
       console.log("Coverage response:", response.data);
     } catch (error) {
       if (error.response) {
@@ -207,6 +210,8 @@ const CoverageCheck = ({ navigation }) => {
         alert("Network error. Please try again.");
       }
       console.log("Coverage check error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -221,7 +226,7 @@ const CoverageCheck = ({ navigation }) => {
       ]}
     >
       <ScrollView
-        contentContainerStyle={tw`px-4  pb-8`}
+        contentContainerStyle={tw`px-4 pb-8`}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -246,23 +251,10 @@ const CoverageCheck = ({ navigation }) => {
 
           <TextInput
             style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
-            placeholder="Post code (e.g., 12345) or full address"
+            placeholder="Post code (e.g., 2000)"
             value={zip}
             onChangeText={setZip}
           />
-
-          {/* Quick ZIPs */}
-          {/* <View style={tw`flex-row flex-wrap mb-2`}>
-            {quickZips.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={tw`bg-gray-100 rounded-lg px-4 py-2 mr-2 mb-2`}
-                onPress={() => setZip(item)}
-              >
-                <Text style={tw`text-gray-700`}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View> */}
 
           <TouchableOpacity
             style={[
@@ -270,12 +262,70 @@ const CoverageCheck = ({ navigation }) => {
               { backgroundColor: theme.colors.primary },
             ]}
             onPress={handleCheck}
+            disabled={loading}
           >
-            <Text style={tw`text-white text-center font-semibold`}>
-              Check Coverage
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={tw`text-white text-center font-semibold`}>
+                Check Coverage
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
+
+        {/* Show Coverage Result */}
+        {coverageData && (
+          <View style={tw`bg-white rounded-xl p-4 border border-gray-200 mb-4`}>
+            <Text style={tw`font-semibold mb-3`}>Coverage Result</Text>
+
+            <View style={tw`mb-2`}>
+              <Text style={tw`text-gray-600 text-xs`}>Address</Text>
+              <Text style={tw`text-base font-semibold`}>
+                {coverageData.displayAddress}
+              </Text>
+            </View>
+
+            <View style={tw`mb-2`}>
+              <Text style={tw`text-gray-600 text-xs`}>Availability</Text>
+              <Text style={tw`text-base font-semibold`}>
+                {coverageData.availability}
+              </Text>
+            </View>
+
+            <View style={tw`mb-2`}>
+              <Text style={tw`text-gray-600 text-xs`}>Network Types</Text>
+              <View style={tw`flex-row flex-wrap mt-1`}>
+                {coverageData.networkTypes?.map((net, index) => (
+                  <View
+                    key={index}
+                    style={tw`bg-blue-100 px-3 py-1 rounded-full mr-2 mb-2`}
+                  >
+                    <Text style={tw`text-blue-700 text-xs font-semibold`}>
+                      {net}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={tw`mb-2`}>
+              <Text style={tw`text-gray-600 text-xs`}>Max Speed</Text>
+              <Text style={tw`text-base font-semibold`}>
+                {coverageData.maxSpeed}
+              </Text>
+            </View>
+
+            {coverageData.expansionDate && (
+              <View>
+                <Text style={tw`text-gray-600 text-xs`}>Expansion Date</Text>
+                <Text style={tw`text-base font-semibold`}>
+                  {coverageData.expansionDate}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Network Information */}
         <View style={tw`bg-white rounded-xl p-4 border border-gray-200 mb-4`}>
