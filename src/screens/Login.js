@@ -273,7 +273,7 @@ const Login = () => {
             />
 
             <TextInput
-              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
+              style={tw`border border-gray-300 text-black rounded-lg px-3 py-2 mb-3`}
               placeholder="Enter PIN"
               placeholderTextColor="#9CA3AF"
               secureTextEntry
