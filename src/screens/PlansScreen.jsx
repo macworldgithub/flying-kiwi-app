@@ -8,6 +8,8 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Modal,
+  Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import tw from "tailwind-react-native-classnames";
@@ -15,7 +17,9 @@ import Icon from "react-native-vector-icons/Feather";
 import { API_BASE_URL } from "../utils/config";
 import { theme } from "../utils/theme";
 import axios from "axios";
-import { Alert } from "react-native";
+import { PaymentCard } from "../components/PaymentCard";
+import { TokenCard } from "../components/TokenCard";
+import { PaymentProcessCard } from "../components/PaymentProcessCard";
 
 export default function PlansScreen() {
   const [plans, setPlans] = useState([]);
@@ -23,15 +27,37 @@ export default function PlansScreen() {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(null);
+  const [customer, setCustomer] = useState(null);
   const route = useRoute();
   const navigation = useNavigation();
   const { customerNo } = route.params || {};
+
+  // Payment flow states
+  const [showPayment, setShowPayment] = useState(false);
+  const [showTokenCard, setShowTokenCard] = useState(false);
+  const [showPaymentProcessCard, setShowPaymentProcessCard] = useState(false);
+  const [paymentToken, setPaymentToken] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
   // Add this useEffect to debug the incoming params
   useEffect(() => {
     console.log("Customer No from params:", customerNo);
     console.log("Current plan:", currentPlan);
     console.log("All plans:", plans);
   }, [customerNo, currentPlan, plans]);
+
+  const fetchCustomerDetails = async (customerNo) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}api/v1/customers/${customerNo}`
+      );
+      return response.data?.data;
+    } catch (err) {
+      console.error("Error fetching customer details:", err);
+      return null;
+    }
+  };
+
   const fetchCurrentPlan = async (customerNo) => {
     try {
       const response = await axios.get(
@@ -56,10 +82,11 @@ export default function PlansScreen() {
     try {
       setLoading(true);
       setError(null);
-
       // First, get the current plan using customer number
       const currentPlanNo = await fetchCurrentPlan(customerNo);
-
+      // Fetch customer details
+      const customerDetails = await fetchCustomerDetails(customerNo);
+      setCustomer(customerDetails);
       // Then fetch all plans
       const response = await axios.get(`${API_BASE_URL}api/v1/orders/plans`);
       if (response.data?.data?.groupPlan) {
@@ -83,10 +110,65 @@ export default function PlansScreen() {
     fetchPlans();
   }, []);
 
+  const handlePlanUpgrade = (plan) => {
+    setSelectedPlan(plan);
+    setShowPayment(true);
+  };
+
+  const handleTokenReceived = (token) => {
+    setPaymentToken(token);
+    setShowPayment(false);
+    setShowTokenCard(true);
+  };
+
+  const handlePaymentMethodAdded = (paymentId) => {
+    setPaymentToken(paymentId);
+    setShowTokenCard(false);
+    setShowPaymentProcessCard(true);
+  };
+
+  const handlePaymentProcessed = async (result) => {
+    setShowPaymentProcessCard(false);
+    if (result?.success && selectedPlan) {
+      try {
+        const response = await axios.patch(
+          `${API_BASE_URL}api/v1/plans/${selectedPlan.planNo}`,
+          {},
+          {
+            headers: {
+              accept: "*/*",
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const updateData = response.data?.data;
+        if (updateData) {
+          setCurrentPlan({
+            planNo: updateData.planNo,
+            planName: updateData.planName,
+          });
+          Alert.alert(
+            "Success",
+            `Plan updated successfully! New Plan: ${updateData.planName} (No: ${updateData.planNo})`
+          );
+          // Refresh to update UI
+          fetchPlans();
+        }
+      } catch (err) {
+        console.error("Error updating plan:", err);
+        Alert.alert(
+          "Error",
+          "Payment successful but plan update failed. Please contact support."
+        );
+      }
+    } else {
+      Alert.alert("Error", result?.message || "Payment failed");
+    }
+  };
+
   const renderPlanItem = ({ item }) => {
     const isCurrentPlan =
       currentPlan && item.planNo.toString() === currentPlan.planNo.toString();
-
     return (
       <View
         style={[
@@ -120,6 +202,11 @@ export default function PlansScreen() {
             <Text style={tw`text-gray-500 text-sm`}>
               Usage Type: {item.usageType}
             </Text>
+            {item.price && (
+              <Text style={tw`text-gray-500 text-sm`}>
+                Price: ${item.price}
+              </Text>
+            )}
           </View>
         </View>
         {!isCurrentPlan ? (
@@ -128,9 +215,7 @@ export default function PlansScreen() {
               styles.upgradeButton,
               { backgroundColor: theme.colors.primary },
             ]}
-            onPress={() => {
-              Alert.alert("Upgrade Plan", `You've selected ${item.planName}`);
-            }}
+            onPress={() => handlePlanUpgrade(item)}
           >
             <Text style={tw`text-white font-medium`}>Upgrade</Text>
           </TouchableOpacity>
@@ -172,7 +257,6 @@ export default function PlansScreen() {
           </Text>
         </View>
       </View>
-
       {error ? (
         <View style={tw`flex-1 justify-center items-center p-6`}>
           <Icon
@@ -194,28 +278,6 @@ export default function PlansScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        // <FlatList
-        //   data={plans}
-        //   renderItem={renderPlanItem}
-        //   keyExtractor={(item) => item.planNo.toString()}
-        //   contentContainerStyle={tw`p-4`}
-        //   showsVerticalScrollIndicator={false}
-        //   refreshing={refreshing}
-        //   onRefresh={onRefresh}
-        //   ListEmptyComponent={
-        //     <View style={tw`flex-1 items-center justify-center p-8`}>
-        //       <Icon
-        //         name="package"
-        //         size={48}
-        //         color={theme.colors.gray}
-        //         style={tw`mb-4`}
-        //       />
-        //       <Text style={tw`text-center text-gray-500`}>
-        //         No plans available at the moment.
-        //       </Text>
-        //     </View>
-        //   }
-        // />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={tw`pb-10`}
@@ -252,7 +314,6 @@ export default function PlansScreen() {
               </Text>
             </View>
           )}
-
           <FlatList
             data={plans.filter(
               (p) => p.planNo.toString() !== currentPlan?.planNo?.toString()
@@ -264,6 +325,109 @@ export default function PlansScreen() {
           />
         </ScrollView>
       )}
+
+      {/* Payment Modals */}
+      <Modal
+        visible={showPayment}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPayment(false)}
+      >
+        <SafeAreaView style={tw`flex-1 bg-white`}>
+          <View style={tw`p-4 border-b border-gray-200`}>
+            <View style={tw`flex-row items-center justify-between`}>
+              <TouchableOpacity onPress={() => setShowPayment(false)}>
+                <Icon
+                  name="arrow-left"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
+              <Text style={tw`text-xl font-bold`}>Enter Card Details</Text>
+              <View style={tw`w-6`} />
+            </View>
+          </View>
+          <View style={tw`flex-1 p-4`}>
+            {selectedPlan && (
+              <PaymentCard
+                onTokenReceived={handleTokenReceived}
+                onClose={() => setShowPayment(false)}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={showTokenCard}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowTokenCard(false)}
+      >
+        <SafeAreaView style={tw`flex-1 bg-white`}>
+          <View style={tw`p-4 border-b border-gray-200`}>
+            <View style={tw`flex-row items-center justify-between`}>
+              <TouchableOpacity onPress={() => setShowTokenCard(false)}>
+                <Icon
+                  name="arrow-left"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
+              <Text style={tw`text-xl font-bold`}>Confirm Token</Text>
+              <View style={tw`w-6`} />
+            </View>
+          </View>
+          <View style={tw`flex-1 p-4`}>
+            {selectedPlan && customerNo && (
+              <TokenCard
+                token={paymentToken}
+                custNo={customerNo}
+                onSuccess={handlePaymentMethodAdded}
+                onClose={() => setShowTokenCard(false)}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={showPaymentProcessCard}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPaymentProcessCard(false)}
+      >
+        <SafeAreaView style={tw`flex-1 bg-white`}>
+          <View style={tw`p-4 border-b border-gray-200`}>
+            <View style={tw`flex-row items-center justify-between`}>
+              <TouchableOpacity
+                onPress={() => setShowPaymentProcessCard(false)}
+              >
+                <Icon
+                  name="arrow-left"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
+              <Text style={tw`text-xl font-bold`}>Process Payment</Text>
+              <View style={tw`w-6`} />
+            </View>
+          </View>
+          <View style={tw`flex-1 p-4`}>
+            {selectedPlan && customer && customerNo && (
+              <PaymentProcessCard
+                custNo={customerNo}
+                amount={selectedPlan.price}
+                email={customer.email}
+                token={paymentToken}
+                plan={selectedPlan}
+                onProcessed={handlePaymentProcessed}
+                onClose={() => setShowPaymentProcessCard(false)}
+              />
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
