@@ -87,10 +87,16 @@ export default function PlansScreen() {
       // Fetch customer details
       const customerDetails = await fetchCustomerDetails(customerNo);
       setCustomer(customerDetails);
-      // Then fetch all plans
-      const response = await axios.get(`${API_BASE_URL}api/v1/orders/plans`);
-      if (response.data?.data?.groupPlan) {
-        setPlans(response.data.data.groupPlan);
+      // Then fetch all plans from the new API
+      const response = await axios.get(`${API_BASE_URL}api/v1/plans`, {
+        headers: { accept: "*/*" },
+      });
+      if (response.data?.data) {
+        // Filter active plans
+        const activePlans = response.data.data.filter(
+          (plan) => plan.isActive === true
+        );
+        setPlans(activePlans);
       }
     } catch (err) {
       console.error("Error fetching plans:", err);
@@ -142,6 +148,7 @@ export default function PlansScreen() {
           }
         );
         const updateData = response.data?.data;
+        console.log("Plan update response data:", updateData);
         if (updateData) {
           setCurrentPlan({
             planNo: updateData.planNo,
@@ -200,13 +207,17 @@ export default function PlansScreen() {
               Plan No: {item.planNo}
             </Text>
             <Text style={tw`text-gray-500 text-sm`}>
+              Group: {item.groupName} ({item.groupNo})
+            </Text>
+            <Text style={tw`text-gray-500 text-sm`}>
+              Network: {item.network}
+            </Text>
+            <Text style={tw`text-gray-500 text-sm`}>
               Usage Type: {item.usageType}
             </Text>
-            {item.price && (
-              <Text style={tw`text-gray-500 text-sm`}>
-                Price: ${item.price}
-              </Text>
-            )}
+            <Text style={tw`text-gray-500 text-sm font-medium`}>
+              Price: ${item.price?.toFixed(2)}
+            </Text>
           </View>
         </View>
         {!isCurrentPlan ? (
@@ -303,10 +314,10 @@ export default function PlansScreen() {
               <Text style={[tw`text-lg font-bold text-blue-600`]}>
                 {currentPlan.planName}
               </Text>
-              <Text style={[tw`text-gray-700 text-sm mt-1`]}>
+              <Text style={tw`text-gray-700 text-sm mt-1`}>
                 Plan No: {currentPlan.planNo}
               </Text>
-              <Text style={[tw`text-gray-500 text-sm`]}>
+              <Text style={tw`text-gray-500 text-sm`}>
                 Usage Type:{" "}
                 {plans.find(
                   (p) => p.planNo.toString() === currentPlan.planNo.toString()
@@ -319,7 +330,7 @@ export default function PlansScreen() {
               (p) => p.planNo.toString() !== currentPlan?.planNo?.toString()
             )}
             renderItem={renderPlanItem}
-            keyExtractor={(item) => item.planNo.toString()}
+            keyExtractor={(item) => item._id || item.planNo.toString()}
             contentContainerStyle={tw`p-4`}
             scrollEnabled={false}
           />

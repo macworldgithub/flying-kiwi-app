@@ -6,173 +6,71 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import tw from "tailwind-react-native-classnames";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../utils/config";
 
-export const TokenCard = ({ token, onSuccess, onClose }) => {
-  const [inputToken, setInputToken] = useState(token);
+export const TokenCard = ({ token, custNo, onSuccess, onClose }) => {
+  const [inputToken, setInputToken] = useState(token || "");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  // const handleSubmit = async () => {
-  //   if (!inputToken.trim()) {
-  //     Alert.alert("Error", "Please enter the token");
-  //     return;
-  //   }
-
-  //   setLoading(true);
-
-  //   try {
-  //     const accessToken = await AsyncStorage.getItem("access_token");
-  //     const customerId = await AsyncStorage.getItem("customer_id");
-
-  //     const custNo = customerId || "526691";
-
-  //     console.log("Submitting payment method:", {
-  //       custNo,
-  //       paymentTokenId: inputToken,
-  //     });
-
-  //     const response = await fetch(
-  //       "https://bele.omnisuiteai.com/api/v1/payments/methods",
-  //       {
-  //         method: "POST",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //           Authorization: `Bearer ${accessToken}`,
-  //         },
-  //         body: JSON.stringify({
-  //           custNo: custNo,
-  //           paymentTokenId: inputToken,
-  //         }),
-  //       }
-  //     );
-
-  //     const data = await response.json();
-  //     console.log("Payment method response:", data);
-
-  //     if (!response.ok) {
-  //       throw new Error(
-  //         data.message || `Failed to add payment method: ${response.status}`
-  //       );
-  //     }
-
-  //     // 🔥 CAPTURE PAYMENT ID FROM RESPONSE - IT'S ALREADY THERE!
-  //     const paymentId = data.data?.paymentId;
-  //     const paymentMethodId = data.data?.paymentMethodId;
-
-  //     console.log("✅ Captured paymentId:", paymentId);
-  //     console.log("✅ Captured paymentMethodId:", paymentMethodId);
-
-  //     // Store BOTH payment ID and payment method ID
-  //     if (paymentId) {
-  //       await AsyncStorage.setItem("payment_id", paymentId);
-  //       console.log("Stored payment_id:", paymentId);
-  //     }
-
-  //     if (paymentMethodId) {
-  //       await AsyncStorage.setItem("payment_method_id", paymentMethodId);
-  //       console.log("Stored payment_method_id:", paymentMethodId);
-  //     }
-
-  //     Alert.alert("Success", "Payment method added successfully!");
-
-  //     onSuccess &&
-  //       onSuccess({
-  //         success: true,
-  //         step: "token_confirmed",
-  //         token: inputToken,
-  //         paymentId: paymentId, // Pass paymentId to next step
-  //         paymentMethodId: paymentMethodId,
-  //       });
-  //   } catch (error) {
-  //     console.error("Token submission error:", error);
-  //     Alert.alert(
-  //       "Error",
-  //       error.message ||
-  //         "Failed to add payment method. Please check the token and try again."
-  //     );
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
   const handleSubmit = async () => {
+    console.log("[DEBUG] handleSubmit called"); // Debug: Function entry
     if (!inputToken.trim()) {
+      console.log("[DEBUG] Empty token check failed"); // Debug: Validation fail
       Alert.alert("Error", "Please enter the token");
       return;
     }
+    console.log("[DEBUG] Token validation passed"); // Debug: After validation
 
     setLoading(true);
+    setMessage("");
+    console.log("[DEBUG] Loading set to true"); // Debug: State change
 
     try {
-      const accessToken = await AsyncStorage.getItem("access_token");
-      const customerId = await AsyncStorage.getItem("customer_id");
+      console.log("[DEBUG] Entering try block"); // Debug: Try entry
+      const payload = { custNo, paymentTokenId: inputToken };
+      console.log("[DEBUG] Payload created:", payload); // Enhanced: More visible prefix
+      console.log("[TokenCard] API Payload:", payload); // Original log
 
-      const custNo = customerId || "526691";
-
-      console.log("Submitting payment method:", {
-        custNo,
-        paymentTokenId: inputToken,
+      console.log("[DEBUG] About to fetch API"); // Debug: Before fetch
+      const response = await fetch(`${API_BASE_URL}api/v1/payments/methods`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+      console.log("[DEBUG] Fetch completed, status:", response.status); // Debug: After fetch
 
-      const response = await fetch(
-        "https://bele.omnisuiteai.com/api/v1/payments/methods",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            custNo: custNo,
-            paymentTokenId: inputToken,
-          }),
-        }
-      );
-
+      console.log("[DEBUG] About to parse JSON"); // Debug: Before json()
       const data = await response.json();
-      console.log("Payment method response:", data);
+      console.log("[DEBUG] JSON parsed"); // Debug: After json()
+      console.log("[TokenCard] API Response:", data); // Original log
 
       if (!response.ok) {
-        throw new Error(
-          data.message || `Failed to add payment method: ${response.status}`
-        );
+        console.log("[DEBUG] Response not OK, throwing error"); // Debug: Error case
+        throw new Error(data.message || "Failed to add payment method");
       }
 
-      // 🔥 FIX: The API returns paymentId, NOT paymentMethodId
-      const paymentId = data.data?.paymentId;
-
-      console.log("✅ Captured paymentId:", paymentId);
-
-      // Store paymentId as BOTH payment_id AND payment_method_id
-      // because the payment processing API expects paymentMethodId
-      if (paymentId) {
-        await AsyncStorage.setItem("payment_id", paymentId);
-        await AsyncStorage.setItem("payment_method_id", paymentId); // Use same ID
-        console.log("Stored payment_id and payment_method_id:", paymentId);
-      }
-
-      Alert.alert("Success", "Payment method added successfully!");
-
-      onSuccess &&
-        onSuccess({
-          success: true,
-          step: "token_confirmed",
-          token: inputToken,
-          paymentId: paymentId,
-          paymentMethodId: paymentId, // Use same ID
-        });
-    } catch (error) {
-      console.error("Token submission error:", error);
-      Alert.alert(
-        "Error",
-        error.message ||
-          "Failed to add payment method. Please check the token and try again."
+      console.log(
+        "[DEBUG] Success - calling onSuccess with paymentId:",
+        data.data?.paymentId
       );
+      Alert.alert("Success", "Payment method added successfully!");
+      onSuccess(data.data?.paymentId);
+    } catch (error) {
+      console.log("[DEBUG] Entering catch block"); // Debug: Catch entry
+      const errorMsg = error.message || "Something went wrong";
+      setMessage(`Card not added: ${errorMsg}`);
+      console.error("[TokenCard] API Error:", error); // Original error log
+      Alert.alert("Error", errorMsg);
     } finally {
+      console.log("[DEBUG] Finally block - setting loading false"); // Debug: Finally
       setLoading(false);
     }
   };
+
   return (
     <View style={[styles.container, tw`rounded-2xl p-4`]}>
       <Text style={[styles.title, tw`text-black font-semibold mb-3`]}>
@@ -180,7 +78,7 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
       </Text>
 
       <TextInput
-        style={[styles.input, tw`mb-3`]}
+        style={styles.input}
         placeholder="Enter payment token"
         value={inputToken}
         onChangeText={setInputToken}
@@ -188,7 +86,9 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
         editable={!loading}
       />
 
-      <View style={tw`flex-row justify-between`}>
+      {message ? <Text style={styles.errorText}>{message}</Text> : null}
+
+      <View style={tw`flex-row justify-between mt-4`}>
         <TouchableOpacity
           style={[styles.button, styles.cancelButton, tw`flex-1 mr-2`]}
           onPress={onClose}
@@ -202,9 +102,11 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
           onPress={handleSubmit}
           disabled={loading || !inputToken.trim()}
         >
-          <Text style={styles.buttonText}>
-            {loading ? "Submitting..." : "Submit Token"}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Submit Token</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -230,6 +132,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000",
   },
+  errorText: {
+    color: "red",
+    fontSize: 12,
+    marginTop: 4,
+  },
   button: {
     paddingVertical: 12,
     borderRadius: 8,
@@ -237,7 +144,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   submitButton: {
-    backgroundColor: "#2bb673",
+    backgroundColor: "#10B981",
   },
   cancelButton: {
     backgroundColor: "#ccc",
