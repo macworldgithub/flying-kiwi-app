@@ -15,7 +15,7 @@ import {
 import tw from "tailwind-react-native-classnames";
 import { ArrowLeft } from "lucide-react-native";
 import { theme } from "../utils/theme";
-import { useNavigation } from "@react-navigation/native"; // 👈 Add this import
+import { useNavigation } from "@react-navigation/native"; 
 
 const BillQuery = () => {
   const navigation = useNavigation();
