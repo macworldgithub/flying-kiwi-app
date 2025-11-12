@@ -33,7 +33,14 @@ const CoverageCheck = ({ navigation }) => {
 
     try {
       const response = await axios.get(`${API_BASE_URL}coverage/${zip}`);
-      setCoverageData(response.data);
+
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        // ✅ store the full array to render later
+        setCoverageData(response.data);
+      } else {
+        alert("No coverage data found for this location.");
+      }
+
       console.log("Coverage response:", response.data);
     } catch (error) {
       if (error.response) {
@@ -107,55 +114,40 @@ const CoverageCheck = ({ navigation }) => {
         </View>
 
         {/* Show Coverage Result */}
-        {coverageData && (
+        {/* Show Coverage Result */}
+        {Array.isArray(coverageData) && coverageData.length > 0 && (
           <View style={tw`bg-white rounded-xl p-4 border border-gray-200 mb-4`}>
             <Text style={tw`font-semibold mb-3`}>Coverage Result</Text>
 
-            <View style={tw`mb-2`}>
-              <Text style={tw`text-gray-600 text-xs`}>Address</Text>
-              <Text style={tw`text-base font-semibold`}>
-                {coverageData.displayAddress}
-              </Text>
-            </View>
-
-            <View style={tw`mb-2`}>
-              <Text style={tw`text-gray-600 text-xs`}>Availability</Text>
-              <Text style={tw`text-base font-semibold`}>
-                {coverageData.availability}
-              </Text>
-            </View>
-
-            <View style={tw`mb-2`}>
-              <Text style={tw`text-gray-600 text-xs`}>Network Types</Text>
-              <View style={tw`flex-row flex-wrap mt-1`}>
-                {coverageData.networkTypes?.map((net, index) => (
-                  <View
-                    key={index}
-                    style={tw`bg-blue-100 px-3 py-1 rounded-full mr-2 mb-2`}
-                  >
-                    <Text style={tw`text-blue-700 text-xs font-semibold`}>
-                      {net}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            <View style={tw`mb-2`}>
-              <Text style={tw`text-gray-600 text-xs`}>Max Speed</Text>
-              <Text style={tw`text-base font-semibold`}>
-                {coverageData.maxSpeed}
-              </Text>
-            </View>
-
-            {coverageData.expansionDate && (
-              <View>
-                <Text style={tw`text-gray-600 text-xs`}>Expansion Date</Text>
+            {coverageData.map((item, index) => (
+              <View key={index} style={tw`mb-4 border-b border-gray-100 pb-3`}>
+                <Text style={tw`text-gray-600 text-xs`}>Address</Text>
                 <Text style={tw`text-base font-semibold`}>
-                  {coverageData.expansionDate}
+                  {item.displayAddress}
                 </Text>
+
+                <Text style={tw`text-gray-600 text-xs mt-2`}>Availability</Text>
+                <Text style={tw`text-base font-semibold`}>
+                  {item.availability}
+                </Text>
+
+                <Text style={tw`text-gray-600 text-xs mt-2`}>
+                  Network Types
+                </Text>
+                <View style={tw`flex-row flex-wrap mt-1`}>
+                  {item.networkTypes?.map((net, i) => (
+                    <View
+                      key={i}
+                      style={tw`bg-blue-100 px-3 py-1 rounded-full mr-2 mb-2`}
+                    >
+                      <Text style={tw`text-blue-700 text-xs font-semibold`}>
+                        {net}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            )}
+            ))}
           </View>
         )}
 

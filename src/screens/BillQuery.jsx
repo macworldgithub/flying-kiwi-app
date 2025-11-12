@@ -15,8 +15,10 @@ import {
 import tw from "tailwind-react-native-classnames";
 import { ArrowLeft } from "lucide-react-native";
 import { theme } from "../utils/theme";
+import { useNavigation } from "@react-navigation/native"; // 👈 Add this import
 
-const BillQuery = ({ navigation }) => {
+const BillQuery = () => {
+  const navigation = useNavigation();
   const [question, setQuestion] = useState("");
   const [billItems] = useState([
     { label: "Previous Balance", amount: 0.0 },
@@ -33,6 +35,8 @@ const BillQuery = ({ navigation }) => {
     setQuestion("");
     Keyboard.dismiss();
   };
+
+  const handleBack = () => navigation.goBack();
 
   return (
     <SafeAreaView
@@ -53,7 +57,7 @@ const BillQuery = ({ navigation }) => {
           >
             {/* Header */}
             <View style={tw`flex-row items-center mb-4`}>
-              <TouchableOpacity onPress={() => navigation.goBack()}>
+              <TouchableOpacity onPress={handleBack} style={tw`p-1`}>
                 <ArrowLeft size={24} color="black" />
               </TouchableOpacity>
               <Text style={tw`ml-3 text-lg font-semibold`}>Bill Query</Text>
