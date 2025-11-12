@@ -16,6 +16,7 @@ import { ArrowLeft } from "lucide-react-native";
 import { theme } from "../utils/theme";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../utils/config";
+import { Ionicons } from "@expo/vector-icons";
 
 const CoverageCheck = ({ navigation }) => {
   const [zip, setZip] = useState("");
@@ -71,7 +72,7 @@ const CoverageCheck = ({ navigation }) => {
         {/* Header */}
         <View style={tw`flex-row items-center mb-4`}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <ArrowLeft size={24} color="black" />
+            <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
           <Text style={tw`ml-3 text-lg font-semibold`}>Coverage Check</Text>
         </View>

@@ -125,8 +125,8 @@ const UpdateAddress = ({ navigation }) => {
     <ScrollView style={tw`flex-1 bg-white px-4 pt-8`}>
       {/* Header */}
       <View style={tw`flex-row items-center mb-4 py-4`}>
-        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
-          <ArrowLeft size={24} color="black" />
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <Text style={tw`ml-3 text-lg font-semibold`}>Update Address</Text>
       </View>
