@@ -96,6 +96,83 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
   //     setLoading(false);
   //   }
   // };
+  // const handleSubmit = async () => {
+  //   if (!inputToken.trim()) {
+  //     Alert.alert("Error", "Please enter the token");
+  //     return;
+  //   }
+
+  //   setLoading(true);
+
+  //   try {
+  //     const accessToken = await AsyncStorage.getItem("access_token");
+  //     const customerId = await AsyncStorage.getItem("customer_id");
+
+  //     const custNo = customerId || "526691";
+
+  //     console.log("Submitting payment method:", {
+  //       custNo,
+  //       paymentTokenId: inputToken,
+  //     });
+
+  //     const response = await fetch(
+  //       "https://bele.omnisuiteai.com/api/v1/payments/methods",
+  //       {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           Authorization: `Bearer ${accessToken}`,
+  //         },
+  //         body: JSON.stringify({
+  //           custNo: custNo,
+  //           paymentTokenId: inputToken,
+  //         }),
+  //       }
+  //     );
+
+  //     const data = await response.json();
+  //     console.log("Payment method response:", data);
+
+  //     if (!response.ok) {
+  //       throw new Error(
+  //         data.message || `Failed to add payment method: ${response.status}`
+  //       );
+  //     }
+
+  //     // 🔥 FIX: The API returns paymentId, NOT paymentMethodId
+  //     const paymentId = data.data?.paymentId;
+
+  //     console.log("✅ Captured paymentId:", paymentId);
+
+  //     // Store paymentId as BOTH payment_id AND payment_method_id
+  //     // because the payment processing API expects paymentMethodId
+  //     if (paymentId) {
+  //       await AsyncStorage.setItem("payment_id", paymentId);
+  //       await AsyncStorage.setItem("payment_method_id", paymentId); // Use same ID
+  //       console.log("Stored payment_id and payment_method_id:", paymentId);
+  //     }
+
+  //     Alert.alert("Success", "Payment method added successfully!");
+
+  //     onSuccess &&
+  //       onSuccess({
+  //         success: true,
+  //         step: "token_confirmed",
+  //         token: inputToken,
+  //         paymentId: paymentId,
+  //         paymentMethodId: paymentId, // Use same ID
+  //       });
+  //   } catch (error) {
+  //     console.error("Token submission error:", error);
+  //     Alert.alert(
+  //       "Error",
+  //       error.message ||
+  //         "Failed to add payment method. Please check the token and try again."
+  //     );
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   const handleSubmit = async () => {
     if (!inputToken.trim()) {
       Alert.alert("Error", "Please enter the token");
@@ -106,9 +183,14 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
 
     try {
       const accessToken = await AsyncStorage.getItem("access_token");
-      const customerId = await AsyncStorage.getItem("customer_id");
 
-      const custNo = customerId || "526691";
+      // Get the customer number from props instead of AsyncStorage
+      const custNo = props.custNo; // This is passed from PlansScreen
+
+      // Validate customer number
+      if (!custNo || custNo === "null" || custNo === "undefined") {
+        throw new Error("Invalid customer number. Please log in again.");
+      }
 
       console.log("Submitting payment method:", {
         custNo,
@@ -139,35 +221,26 @@ export const TokenCard = ({ token, onSuccess, onClose }) => {
         );
       }
 
-      // 🔥 FIX: The API returns paymentId, NOT paymentMethodId
-      const paymentId = data.data?.paymentId;
+      // Get the payment method ID from the response
+      const paymentMethodId = data.data?.id || data.data?.paymentMethodId;
 
-      console.log("✅ Captured paymentId:", paymentId);
-
-      // Store paymentId as BOTH payment_id AND payment_method_id
-      // because the payment processing API expects paymentMethodId
-      if (paymentId) {
-        await AsyncStorage.setItem("payment_id", paymentId);
-        await AsyncStorage.setItem("payment_method_id", paymentId); // Use same ID
-        console.log("Stored payment_id and payment_method_id:", paymentId);
+      if (!paymentMethodId) {
+        throw new Error("No payment method ID returned from server");
       }
 
-      Alert.alert("Success", "Payment method added successfully!");
+      console.log("✅ Payment method added successfully:", paymentMethodId);
 
+      // Pass the payment method ID to the parent component
       onSuccess &&
         onSuccess({
           success: true,
-          step: "token_confirmed",
-          token: inputToken,
-          paymentId: paymentId,
-          paymentMethodId: paymentId, // Use same ID
+          paymentMethodId: paymentMethodId,
         });
     } catch (error) {
       console.error("Token submission error:", error);
       Alert.alert(
         "Error",
-        error.message ||
-          "Failed to add payment method. Please check the token and try again."
+        error.message || "Failed to add payment method. Please try again."
       );
     } finally {
       setLoading(false);

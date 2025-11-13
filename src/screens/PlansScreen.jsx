@@ -87,10 +87,16 @@ export default function PlansScreen() {
       // Fetch customer details
       const customerDetails = await fetchCustomerDetails(customerNo);
       setCustomer(customerDetails);
-      // Then fetch all plans
-      const response = await axios.get(`${API_BASE_URL}api/v1/orders/plans`);
-      if (response.data?.data?.groupPlan) {
-        setPlans(response.data.data.groupPlan);
+      // Then fetch all plans from the new API
+      const response = await axios.get(`${API_BASE_URL}api/v1/plans`, {
+        headers: { accept: "*/*" },
+      });
+      if (response.data?.data) {
+        // Filter active plans
+        const activePlans = response.data.data.filter(
+          (plan) => plan.isActive === true
+        );
+        setPlans(activePlans);
       }
     } catch (err) {
       console.error("Error fetching plans:", err);
@@ -129,40 +135,65 @@ export default function PlansScreen() {
 
   const handlePaymentProcessed = async (result) => {
     setShowPaymentProcessCard(false);
-    if (result?.success && selectedPlan) {
+    if (result?.success && selectedPlan && customerNo) {
       try {
-        const response = await axios.patch(
-          `${API_BASE_URL}api/v1/plans/${selectedPlan.planNo}`,
-          {},
+        // Get the access token from AsyncStorage
+        const token = await AsyncStorage.getItem("access_token");
+
+        // Make sure we have the required data
+        if (!token) {
+          throw new Error("Authentication token not found");
+        }
+
+        // Call the change-plan endpoint with the correct request format
+        const response = await axios.post(
+          `${API_BASE_URL}api/v1/orders/change-plan`,
+          {
+            customerNo: customerNo,
+            planNo: selectedPlan.planNo,
+            paymentMethodId: paymentToken,
+          },
           {
             headers: {
-              accept: "*/*",
               "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
             },
           }
         );
-        const updateData = response.data?.data;
-        if (updateData) {
+
+        console.log("Plan update response:", response.data);
+
+        if (response.data?.success) {
+          // Update the current plan with the newly selected plan
           setCurrentPlan({
-            planNo: updateData.planNo,
-            planName: updateData.planName,
+            planNo: selectedPlan.planNo,
+            planName: selectedPlan.planName,
           });
+
           Alert.alert(
             "Success",
-            `Plan updated successfully! New Plan: ${updateData.planName} (No: ${updateData.planNo})`
+            `Plan updated successfully to ${selectedPlan.planName}`
           );
-          // Refresh to update UI
+
+          // Refresh plans to update the UI
           fetchPlans();
+        } else {
+          throw new Error(response.data?.message || "Failed to update plan");
         }
-      } catch (err) {
-        console.error("Error updating plan:", err);
+      } catch (error) {
+        console.error("Plan update error:", error);
         Alert.alert(
           "Error",
-          "Payment successful but plan update failed. Please contact support."
+          error.response?.data?.message ||
+            error.message ||
+            "Failed to update plan. Please try again."
         );
       }
     } else {
-      Alert.alert("Error", result?.message || "Payment failed");
+      Alert.alert(
+        "Error",
+        result?.message || "Payment was not successful. Please try again."
+      );
     }
   };
 
@@ -200,13 +231,17 @@ export default function PlansScreen() {
               Plan No: {item.planNo}
             </Text>
             <Text style={tw`text-gray-500 text-sm`}>
+              Group: {item.groupName} ({item.groupNo})
+            </Text>
+            <Text style={tw`text-gray-500 text-sm`}>
+              Network: {item.network}
+            </Text>
+            <Text style={tw`text-gray-500 text-sm`}>
               Usage Type: {item.usageType}
             </Text>
-            {item.price && (
-              <Text style={tw`text-gray-500 text-sm`}>
-                Price: ${item.price}
-              </Text>
-            )}
+            <Text style={tw`text-gray-500 text-sm font-medium`}>
+              Price: ${item.price?.toFixed(2)}
+            </Text>
           </View>
         </View>
         {!isCurrentPlan ? (
@@ -303,10 +338,10 @@ export default function PlansScreen() {
               <Text style={[tw`text-lg font-bold text-blue-600`]}>
                 {currentPlan.planName}
               </Text>
-              <Text style={[tw`text-gray-700 text-sm mt-1`]}>
+              <Text style={tw`text-gray-700 text-sm mt-1`}>
                 Plan No: {currentPlan.planNo}
               </Text>
-              <Text style={[tw`text-gray-500 text-sm`]}>
+              <Text style={tw`text-gray-500 text-sm`}>
                 Usage Type:{" "}
                 {plans.find(
                   (p) => p.planNo.toString() === currentPlan.planNo.toString()
@@ -319,7 +354,7 @@ export default function PlansScreen() {
               (p) => p.planNo.toString() !== currentPlan?.planNo?.toString()
             )}
             renderItem={renderPlanItem}
-            keyExtractor={(item) => item.planNo.toString()}
+            keyExtractor={(item) => item._id || item.planNo.toString()}
             contentContainerStyle={tw`p-4`}
             scrollEnabled={false}
           />
@@ -380,9 +415,15 @@ export default function PlansScreen() {
           </View>
           <View style={tw`flex-1 p-4`}>
             {selectedPlan && customerNo && (
+              //   <TokenCard
+              //     token={paymentToken}
+              //     custNo={customerNo}
+              //     onSuccess={handlePaymentMethodAdded}
+              //     onClose={() => setShowTokenCard(false)}
+              //   />
               <TokenCard
                 token={paymentToken}
-                custNo={customerNo}
+                custNo={customerNo} // Make sure this is the correct customer number
                 onSuccess={handlePaymentMethodAdded}
                 onClose={() => setShowTokenCard(false)}
               />
