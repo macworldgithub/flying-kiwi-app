@@ -160,11 +160,9 @@ export default function PlansScreen() {
             },
           }
         );
-
-        console.log("Plan update response:", response.data);
-
-        if (response.data?.success) {
-          // Update the current plan with the newly selected plan
+        const updateData = response.data?.data;
+        console.log("Plan update response data:", updateData);
+        if (updateData) {
           setCurrentPlan({
             planNo: selectedPlan.planNo,
             planName: selectedPlan.planName,

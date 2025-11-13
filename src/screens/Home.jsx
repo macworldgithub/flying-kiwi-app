@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WebView } from "react-native-webview";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/config";
+import { Feather } from "@expo/vector-icons";
 
 export default function Home() {
   const navigation = useNavigation();
@@ -92,7 +93,7 @@ export default function Home() {
     try {
       setServiceLoading(true);
       const response = await axios.get(
-        `https://bele.omnisuiteai.com/api/v1/customers/${custNo}/services`,
+        `${API_BASE_URL}api/v1/customers/${custNo}/services`,
         { headers: { accept: "application/json" } }
       );
       const service = response.data?.data?.services?.serviceDetails?.[0];
@@ -108,7 +109,7 @@ export default function Home() {
     try {
       setBalanceLoading(true);
       const response = await axios.get(
-        `https://bele.omnisuiteai.com/api/v1/customers/${custNo}/balance`,
+        `${API_BASE_URL}api/v1/customers/${custNo}/balance`,
         { headers: { accept: "application/json" } }
       );
       setBalance(response.data?.data || null);
@@ -208,29 +209,24 @@ export default function Home() {
             )}
           </View>
           <View style={tw`ml-auto flex-row`}>
-            {/* <Bell size={24} color="black" style={tw`mr-4`} /> */}
-            <Icon
-              name="log-out"
-              size={22}
-              color="black"
-              onPress={async () => {
+            <TouchableOpacity
+              onPress={() =>
                 Alert.alert(
                   "Confirm Logout",
                   "Are you sure you want to log out?",
                   [
-                    {
-                      text: "Cancel",
-                      style: "cancel",
-                    },
+                    { text: "Cancel", style: "cancel" },
                     {
                       text: "Logout",
                       style: "destructive",
                       onPress: async () => {
                         try {
-                          await AsyncStorage.removeItem("userData");
-                          await AsyncStorage.removeItem("access_token");
-                          await AsyncStorage.removeItem("lastEmail");
-                          await AsyncStorage.removeItem("lastPin");
+                          await AsyncStorage.multiRemove([
+                            "userData",
+                            "access_token",
+                            "lastEmail",
+                            "lastPin",
+                          ]);
                           navigation.reset({
                             index: 0,
                             routes: [{ name: "Login" }],
@@ -240,11 +236,13 @@ export default function Home() {
                         }
                       },
                     },
-                  ],
-                  { cancelable: true }
-                );
-              }}
-            />
+                  ]
+                )
+              }
+              style={tw`p-2`}
+            >
+              <Feather name="log-out" size={24} color="black" />
+            </TouchableOpacity>
           </View>
         </View>
         {/* Account Overview */}
@@ -305,9 +303,7 @@ export default function Home() {
         >
           <View style={tw`flex-row justify-between items-center mb-2`}>
             <Text style={tw`font-semibold`}>Current Plan</Text>
-            <TouchableOpacity
-              // In Home.jsx - update the onPress handler
-              // In Home.jsx, update the onPress handler
+            {/* <TouchableOpacity
               onPress={() => {
                 console.log("User object:", JSON.stringify(user, null, 2));
                 console.log("Account ID:", user?.accountId);
@@ -331,7 +327,7 @@ export default function Home() {
                 Change Plan
               </Text>
               <Icon name="arrow-right" size={16} color={theme.colors.primary} />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
           {serviceLoading ? (
             <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -437,12 +433,15 @@ export default function Home() {
                 onPress={() => navigation.navigate(item.screen)}
               >
                 <View style={tw`flex-row items-center`}>
-                  <Icon
-                    name={item.icon}
-                    size={22}
-                    color="blue"
-                    style={tw`mr-3`}
-                  />
+                  {item.icon === "file-text" && (
+                    <FileText size={22} color="blue" style={tw`mr-3`} />
+                  )}
+                  {item.icon === "map-pin" && (
+                    <MapPin size={22} color="blue" style={tw`mr-3`} />
+                  )}
+                  {item.icon === "wifi" && (
+                    <Wifi size={22} color="blue" style={tw`mr-3`} />
+                  )}
                   <View>
                     <Text style={tw`text-black font-medium`}>{item.title}</Text>
                     <Text style={tw`text-gray-500 text-xs mt-1`}>
