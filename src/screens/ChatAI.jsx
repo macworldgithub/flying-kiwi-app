@@ -1501,6 +1501,19 @@ const ChatScreen = ({ navigation }) => {
   };
   const handleSend = async (msgText, retryWithoutSession = false) => {
     if (!msgText.trim() || loading) return;
+
+    // === 1. Skip internal commands (don't process via bot) ===
+    const internalCommands = [
+      "SELECT_PLAN:",
+      "Payment method successfully added!",
+      "Payment processing completed!",
+    ];
+    if (internalCommands.some((cmd) => msgText.startsWith(cmd))) {
+      // Don't show internal message in chat
+      return;
+    }
+
+    // === 2. Create user message ===
     const userMsg = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       type: "user",
@@ -1510,17 +1523,31 @@ const ChatScreen = ({ navigation }) => {
         minute: "2-digit",
       }),
     };
+
     setChat((prev) => [...prev, userMsg]);
     setMessage("");
     setLoading(true);
+
     try {
       let payload = {
         query: userMsg.text,
         brand: "Prosperity-tech",
       };
+
+      // === 3. Handle special case: Plan selection via planNo ===
+      if (msgText.startsWith("SELECT_PLAN:")) {
+        const planId = msgText.replace("SELECT_PLAN:", "").trim();
+        payload = {
+          ...payload,
+          planNo: planId,
+          query: "select plan", // Optional: use a neutral query
+        };
+      }
+
       if (!retryWithoutSession && sessionId) {
         payload.session_id = sessionId;
       }
+
       const token = await AsyncStorage.getItem("access_token");
       const headers = {
         Accept: "application/json",
@@ -1529,36 +1556,46 @@ const ChatScreen = ({ navigation }) => {
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
+
       const response = await fetch(`${API_BASE_URL}chat/query`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
       });
+
       if (!response.ok) {
         const errorBody = await response.text();
         throw new Error(
           `HTTP ${response.status}: ${errorBody || response.statusText}`
         );
       }
+
       const data = await response.json();
+
+      // === 4. Update session ===
       if (!sessionId && !retryWithoutSession && data.session_id) {
         setSessionId(data.session_id);
         try {
           await AsyncStorage.setItem("chat_session_id", data.session_id);
         } catch (e) {
-          // ignore storage errors
+          // ignore
         }
       }
+
       if (data?.custNo) {
         setCustNo(data.custNo);
       }
+
+      // === 5. Get raw bot response ===
       const originalBotText =
         data?.message || data?.response || "Sorry, I couldn’t understand that.";
       let displayBotText = originalBotText;
       const lowerOriginal = originalBotText.toLowerCase();
 
-      // Check for signup trigger and override message
+      // === 6. UI Triggers (Signup, Numbers, etc.) ===
       let triggerSignup = false;
+      let triggerNumbers = false;
+
       if (
         lowerOriginal.includes("please provide your first name") ||
         isDetailsRequest(originalBotText)
@@ -1568,9 +1605,7 @@ const ChatScreen = ({ navigation }) => {
         triggerSignup = true;
       }
 
-      // Check for numbers trigger and override message
       const numbersMatch = originalBotText.match(/04\d{8}/g);
-      let triggerNumbers = false;
       if (numbersMatch && numbersMatch.length === 5) {
         const numbers = extractNumbers(originalBotText);
         setNumberOptions(numbers);
@@ -1579,34 +1614,45 @@ const ChatScreen = ({ navigation }) => {
         triggerNumbers = true;
       }
 
-      // Check for plan trigger (when user sends a phone number)
+      // === 7. Override: When user sends a phone number → show plans ===
       if (userMsg.text.match(/^04\d{8}$/)) {
         displayBotText = "Please select a plan from the available options.";
       }
 
-      const botMsg = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        type: "bot",
-        text: displayBotText,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setChat((prev) => [...prev, botMsg]);
+      // === 8. FINAL: Skip bot reply for internal actions ===
+      const skipBotReply = [
+        "SELECT_PLAN:",
+        "Payment method successfully added!",
+        "Payment processing completed!",
+      ].some((cmd) => userMsg.text.includes(cmd));
 
-      // Handle native UI triggers based on bot response
+      if (!skipBotReply) {
+        const botMsg = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: "bot",
+          text: displayBotText,
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+        setChat((prev) => [...prev, botMsg]);
+      }
+
+      // === 9. Trigger UI ===
       if (triggerSignup) {
         setShowSignupForm(true);
       }
     } catch (error) {
       console.error("Chat error:", error);
       let errorMsg = "Oops! Something went wrong. Please try again.";
+
       if (error.message.includes("Failed to fetch")) {
         errorMsg = "Network error. Please try again.";
-      } else if (error.message.includes("401")) {
+      } else if (error.payload?.includes("401")) {
         errorMsg = "Session expired. Please log in again.";
       }
+
       const errorResponse = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         type: "bot",
@@ -1617,12 +1663,10 @@ const ChatScreen = ({ navigation }) => {
         }),
       };
       setChat((prev) => [...prev, errorResponse]);
-      // Retry without session if invalid
+
       if (error.message.includes("Invalid session") && !retryWithoutSession) {
         await clearSession();
-        setTimeout(() => {
-          handleSend(msgText, true);
-        }, 500);
+        setTimeout(() => handleSend(msgText, true), 500);
       }
     } finally {
       setLoading(false);
@@ -1669,20 +1713,29 @@ const ChatScreen = ({ navigation }) => {
     }
   };
   const handlePlanSelect = async (plan) => {
+    const planId = String(plan.planNo || plan.id || plan.planId || "UNKNOWN");
     setSelectedPlan(plan);
-    setPlanNo(String(plan.planNo || plan.id || "PLAN001"));
+    setPlanNo(planId);
     setShowPlans(false);
-    // Send selection to backend
-    const planText = `I would like to select the plan: ${
-      plan.planName || plan.name
-    }`;
-    await handleSend(planText);
-    // Show payment
+
+    // Show clean user message
+    const userFriendlyMsg = {
+      id: Date.now(),
+      type: "user",
+      text: `I choose the ${plan.planName || plan.name} plan ($${plan.price})`,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setChat((prev) => [...prev, userFriendlyMsg]);
+
+    // Send internal command (will be skipped from bot reply)
+    await handleSend(`SELECT_PLAN:${planId}`);
+
+    // Proceed to payment
     setShowPayment(true);
-    // Scroll to bottom
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollToEnd({ animated: true });
-    }
+    scrollViewRef.current?.scrollToEnd({ animated: true });
   };
   const handleTokenReceived = async (token) => {
     setPaymentToken(token);
