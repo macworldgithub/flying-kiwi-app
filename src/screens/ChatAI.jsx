@@ -1831,7 +1831,7 @@ const ChatScreen = ({ navigation }) => {
 Here is your Order ID: ${result.data.orderId}. Take a copy of it now,
 but you will also be emailed it.
 
-📱 Step 3: Install the eSIM on your phone.
+ Install the eSIM on your phone.
 You will receive a QR Code in the next 5–10 minutes via email from:
 donotreply@mobileservicesolutions.com.au
 
