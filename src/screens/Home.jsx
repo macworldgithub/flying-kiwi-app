@@ -32,20 +32,21 @@ export default function Home() {
   const [balance, setBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
 
-  const [user, setUser] = useState({
-    name: "John Doe",
-    accountId: "ACC12345",
-    serviceAddress: "123 Main St, Anytown, ST 12345",
-    plan: "Premium 5G Plan",
-    speed: "Up to 100 Mbps",
-    status: "Active",
-    expiry: "June 15, 2024",
-    dataUsed: 8.5,
-    dataLimit: 15,
-    bill: 50.0,
-    dueDate: "May 15, 2024",
-    disputeNotice: true,
-  });
+  // const [user, setUser] = useState({
+  //   name: "John Doe",
+  //   accountId: "ACC12345",
+  //   serviceAddress: "123 Main St, Anytown, ST 12345",
+  //   plan: "Premium 5G Plan",
+  //   speed: "Up to 100 Mbps",
+  //   status: "Active",
+  //   expiry: "June 15, 2024",
+  //   dataUsed: 8.5,
+  //   dataLimit: 15,
+  //   bill: 50.0,
+  //   dueDate: "May 15, 2024",
+  //   disputeNotice: true,
+  // });
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -121,9 +122,11 @@ export default function Home() {
   };
 
   const percentageUsed =
-    user.dataLimit > 0 ? Math.round((user.dataUsed / user.dataLimit) * 100) : 0;
+    user?.dataLimit > 0
+      ? Math.round((user?.dataUsed / user?.dataLimit) * 100)
+      : 0;
   const remainingData =
-    user.dataLimit > 0 ? (user.dataLimit - user.dataUsed).toFixed(1) : 0;
+    user?.dataLimit > 0 ? (user?.dataLimit - user?.dataUsed).toFixed(1) : 0;
 
   const handleMessage = (event) => {
     try {
@@ -199,13 +202,23 @@ export default function Home() {
             <Text style={tw`text-black font-bold`}>Welcome</Text>
             {loading && <Text style={tw`text-gray-500`}>Loading...</Text>}
             {error && <Text style={tw`text-red-500`}>Error: {error}</Text>}
-            {user && (
+            {/* {user && (
               <View>
                 <Text style={tw`text-base text-black font-semibold`}>
                   {user.name}
                 </Text>
                 <Text style={tw`text-sm text-gray-500`}>{user.email}</Text>
               </View>
+            )} */}
+            {user ? (
+              <View>
+                <Text style={tw`text-base text-black font-semibold`}>
+                  {user?.name}
+                </Text>
+                <Text style={tw`text-sm text-gray-500`}>{user?.email}</Text>
+              </View>
+            ) : (
+              <ActivityIndicator />
             )}
           </View>
           <View style={tw`ml-auto flex-row`}>
@@ -253,12 +266,14 @@ export default function Home() {
           <View style={tw`flex-row justify-between`}>
             <View>
               <Text style={tw`text-gray-500`}>Account ID</Text>
-              <Text style={tw`font-bold text-green-600`}>{user.accountId}</Text>
+              <Text style={tw`font-bold text-green-600`}>
+                {user?.accountId}
+              </Text>
               <Text style={tw`text-gray-500 mt-2`}>Status</Text>
               <Text
                 style={tw`text-green-600 font-medium border border-green-600 bg-green-50 rounded-full px-3 py-1 -ml-2`}
               >
-                {user.category_status_customer || user.status || "N/A"}
+                {user?.category_status_customer || user?.status || "N/A"}
               </Text>
 
               {/* <Text style={tw`text-gray-400 text-xs mt-1`}>
@@ -268,7 +283,7 @@ export default function Home() {
             <View style={tw`items-end`}>
               <Text style={tw`text-gray-500`}>Service Address</Text>
               <Text style={tw`text-right font-medium text-black w-36`}>
-                {user.serviceAddress}
+                {user?.serviceAddress}
               </Text>
             </View>
           </View>
@@ -279,7 +294,7 @@ export default function Home() {
         >
           <Text style={tw`font-semibold mb-2`}>Data Usage</Text>
           <Text style={tw`text-black`}>
-            This Month: {user.dataUsed} / {user.dataLimit} GB
+            This Month: {user?.dataUsed} / {user?.dataLimit} GB
           </Text>
           <View style={tw`w-full bg-gray-200 h-2 rounded-full mt-2`}>
             <View

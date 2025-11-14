@@ -1734,36 +1734,85 @@ const ChatScreen = ({ navigation }) => {
       } ${submittedSignupDetails?.state || ""} ${
         submittedSignupDetails?.postcode || ""
       }, Australia`;
+
       const payload = {
-        number: selectedSim || "", // Now filled with selected number (was empty)
+        number: selectedSim || "",
         cust: {
           custNo: custNo || "",
-          address: fullAddress.trim(), // Full constructed address
+          address: fullAddress.trim(),
           suburb: submittedSignupDetails?.suburb || "",
           postcode: submittedSignupDetails?.postcode || "",
           email: submittedSignupDetails?.email || "",
         },
         planNo: String(planNo || ""),
-        simNo: "", // Now empty (was filled)
+        simNo: "",
       };
+
       console.log("Activation payload:", payload);
+
       const response = await fetch(`${API_BASE_URL}api/v1/orders/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       const result = await response.json();
       console.log("Activation result:", result);
-      if (response.ok) {
-        await handleSend("Order successfully activated!");
+
+      // Clear any existing success/error messages
+      setChat((prev) =>
+        prev.filter(
+          (msg) =>
+            !msg.text.includes("Great News") &&
+            !msg.text.includes("Activation failed") &&
+            !msg.text.includes("Order activation failed")
+        )
+      );
+
+      if (response.ok && result.data?.orderId) {
+        const successMessage = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: "bot",
+          text: `Great News...Your eSIM has been created with Flying Kiwi.
+
+Here is your Order ID: ${result.data.orderId}. Take a copy of it now,
+but you will also be emailed it.
+
+📱 Step 3: Install the eSIM on your phone.
+You will receive a QR Code in the next 5–10 minutes via email from:
+donotreply@mobileservicesolutions.com.au
+
+📌 Make sure to check your junk mail if it hasn't arrived in the next 5–10 minutes.`,
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+        setChat((prev) => [...prev, successMessage]);
       } else {
-        await handleSend(
-          `Activation failed: ${result.message || "Unknown error"}`
-        );
+        const errorMessage = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          type: "bot",
+          text: `Activation failed: ${result.message || "Unknown error"}`,
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+        setChat((prev) => [...prev, errorMessage]);
       }
     } catch (err) {
       console.error("Activation failed", err);
-      await handleSend("Order activation failed. Please try again.");
+      const errorMessage = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "bot",
+        text: "Order activation failed. Please try again.",
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setChat((prev) => [...prev, errorMessage]);
     }
   };
   // Date picker handlers

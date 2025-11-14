@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  submitButton: {
+  submitButton: { 
     backgroundColor: "#10B981",
   },
   cancelButton: {
