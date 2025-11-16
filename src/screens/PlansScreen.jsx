@@ -19,6 +19,8 @@ import { theme } from "../utils/theme";
 import axios from "axios";
 import { PaymentCard } from "../components/PaymentCard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function PlansScreen() {
   const [plans, setPlans] = useState([]);
@@ -265,7 +267,7 @@ export default function PlansScreen() {
   if (loading && !refreshing) {
     return (
       <View style={[tw`flex-1 bg-gray-50`, styles.container]}>
-        <View style={tw`p-4 border-b border-gray-200 bg-white`}>
+        <View style={tw`p-12 border-b border-gray-200 bg-white`}>
           <Text style={tw`text-xl font-bold`}>Available Plans</Text>
         </View>
         <View style={tw`flex-1 justify-center items-center`}>
@@ -278,19 +280,17 @@ export default function PlansScreen() {
 
   return (
     <SafeAreaView style={[tw`flex-1 bg-gray-50`, styles.container]}>
-      <View style={tw`p-4 border-b border-gray-200 bg-white`}>
-        <View style={tw`flex-row items-center`}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={tw`mr-4`}
-          >
-            <Icon name="arrow-left" size={24} color={theme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={tw`text-xl font-bold text-gray-900`}>
-            Available Plans
-          </Text>
-        </View>
+      <View
+        style={tw`flex-row items-center mb-4 py-4 px-4 pt-${
+          Platform.OS === "android" ? "12" : "4"
+        }`}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+        <Text style={tw`ml-3 text-lg font-semibold`}>Available Plan</Text>
       </View>
+
       {error ? (
         <View style={tw`flex-1 justify-center items-center p-6`}>
           <Icon
