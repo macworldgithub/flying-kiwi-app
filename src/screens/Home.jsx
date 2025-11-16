@@ -19,7 +19,6 @@
 // import axios from "axios";
 // import { API_BASE_URL } from "../utils/config";
 // import { Feather } from "@expo/vector-icons";
-
 // export default function Home() {
 //   const navigation = useNavigation();
 //   // 🔹 Modal state
@@ -31,23 +30,21 @@
 //   const [serviceLoading, setServiceLoading] = useState(false);
 //   const [balance, setBalance] = useState(null);
 //   const [balanceLoading, setBalanceLoading] = useState(false);
-
 //   // const [user, setUser] = useState({
-//   //   name: "John Doe",
-//   //   accountId: "ACC12345",
-//   //   serviceAddress: "123 Main St, Anytown, ST 12345",
-//   //   plan: "Premium 5G Plan",
-//   //   speed: "Up to 100 Mbps",
-//   //   status: "Active",
-//   //   expiry: "June 15, 2024",
-//   //   dataUsed: 8.5,
-//   //   dataLimit: 15,
-//   //   bill: 50.0,
-//   //   dueDate: "May 15, 2024",
-//   //   disputeNotice: true,
+//   // name: "John Doe",
+//   // accountId: "ACC12345",
+//   // serviceAddress: "123 Main St, Anytown, ST 12345",
+//   // plan: "Premium 5G Plan",
+//   // speed: "Up to 100 Mbps",
+//   // status: "Active",
+//   // expiry: "June 15, 2024",
+//   // dataUsed: 8.5,
+//   // dataLimit: 15,
+//   // bill: 50.0,
+//   // dueDate: "May 15, 2024",
+//   // disputeNotice: true,
 //   // });
 //   const [user, setUser] = useState(null);
-
 //   useEffect(() => {
 //     const fetchUserData = async () => {
 //       try {
@@ -89,7 +86,6 @@
 //     };
 //     fetchUserData();
 //   }, []);
-
 //   const fetchServiceData = async (custNo) => {
 //     try {
 //       setServiceLoading(true);
@@ -105,7 +101,6 @@
 //       setServiceLoading(false);
 //     }
 //   };
-
 //   const fetchBalance = async (custNo) => {
 //     try {
 //       setBalanceLoading(true);
@@ -120,14 +115,12 @@
 //       setBalanceLoading(false);
 //     }
 //   };
-
 //   const percentageUsed =
 //     user?.dataLimit > 0
 //       ? Math.round((user?.dataUsed / user?.dataLimit) * 100)
 //       : 0;
 //   const remainingData =
 //     user?.dataLimit > 0 ? (user?.dataLimit - user?.dataUsed).toFixed(1) : 0;
-
 //   const handleMessage = (event) => {
 //     try {
 //       const data = JSON.parse(event.nativeEvent.data);
@@ -143,7 +136,54 @@
 //       console.log("Non-JSON message:", event.nativeEvent.data);
 //     }
 //   };
-
+//   const handleCloseAccount = async () => {
+//     Alert.alert(
+//       "Close Account",
+//       "Are you sure you want to permanently close your account? This action cannot be undone.",
+//       [
+//         { text: "Cancel", style: "cancel" },
+//         {
+//           text: "Close Account",
+//           style: "destructive",
+//           onPress: async () => {
+//             try {
+//               const token = await AsyncStorage.getItem("access_token");
+//               if (!token) {
+//                 Alert.alert("Error", "No authentication token found");
+//                 return;
+//               }
+//               await axios.delete(
+//                 `${API_BASE_URL}api/v1/customers/${user.accountId}`,
+//                 {
+//                   headers: {
+//                     Authorization: `Bearer ${token}`,
+//                     accept: "application/json",
+//                   },
+//                 }
+//               );
+//               Alert.alert("Success", "Your request has been sent to Octane");
+//               await AsyncStorage.multiRemove([
+//                 "userData",
+//                 "access_token",
+//                 "lastEmail",
+//                 "lastPin",
+//               ]);
+//               navigation.reset({
+//                 index: 0,
+//                 routes: [{ name: "Login" }],
+//               });
+//             } catch (error) {
+//               console.error("Close account error:", error);
+//               Alert.alert(
+//                 "Error",
+//                 error.response?.data?.message || "Failed to close account"
+//               );
+//             }
+//           },
+//         },
+//       ]
+//     );
+//   };
 //   return (
 //     <SafeAreaView style={tw`flex-1 bg-white`}>
 //       <ScrollView
@@ -275,7 +315,6 @@
 //               >
 //                 {user?.category_status_customer || user?.status || "N/A"}
 //               </Text>
-
 //               {/* <Text style={tw`text-gray-400 text-xs mt-1`}>
 //                 Expires {user.expiry}
 //               </Text> */}
@@ -467,6 +506,23 @@
 //                 <ArrowRight size={20} color="black" />
 //               </TouchableOpacity>
 //             ))}
+//             <TouchableOpacity
+//               style={tw`bg-white p-4 rounded-xl border border-red-200 flex-row justify-between items-center mb-3`}
+//               onPress={handleCloseAccount}
+//             >
+//               <View style={tw`flex-row items-center`}>
+//                 <Feather name="user-x" size={22} color="red" style={tw`mr-3`} />
+//                 <View>
+//                   <Text style={tw`text-black font-medium`}>
+//                     Close My Account
+//                   </Text>
+//                   <Text style={tw`text-gray-500 text-xs mt-1`}>
+//                     Permanently close your account
+//                   </Text>
+//                 </View>
+//               </View>
+//               <ArrowRight size={20} color="black" />
+//             </TouchableOpacity>
 //           </View>
 //         </View>
 //       </ScrollView>
@@ -723,6 +779,7 @@ import { WebView } from "react-native-webview";
 import axios from "axios";
 import { API_BASE_URL } from "../utils/config";
 import { Feather } from "@expo/vector-icons";
+
 export default function Home() {
   const navigation = useNavigation();
   // 🔹 Modal state
@@ -734,6 +791,7 @@ export default function Home() {
   const [serviceLoading, setServiceLoading] = useState(false);
   const [balance, setBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [closingAccount, setClosingAccount] = useState(false);
   // const [user, setUser] = useState({
   // name: "John Doe",
   // accountId: "ACC12345",
@@ -850,6 +908,7 @@ export default function Home() {
           text: "Close Account",
           style: "destructive",
           onPress: async () => {
+            setClosingAccount(true);
             try {
               const token = await AsyncStorage.getItem("access_token");
               if (!token) {
@@ -882,6 +941,8 @@ export default function Home() {
                 "Error",
                 error.response?.data?.message || "Failed to close account"
               );
+            } finally {
+              setClosingAccount(false);
             }
           },
         },
@@ -1211,7 +1272,11 @@ export default function Home() {
               </TouchableOpacity>
             ))}
             <TouchableOpacity
-              style={tw`bg-white p-4 rounded-xl border border-red-200 flex-row justify-between items-center mb-3`}
+              disabled={closingAccount}
+              style={[
+                tw`bg-white p-4 rounded-xl border border-red-200 flex-row justify-between items-center mb-3`,
+                closingAccount && tw`opacity-50`,
+              ]}
               onPress={handleCloseAccount}
             >
               <View style={tw`flex-row items-center`}>
@@ -1225,7 +1290,11 @@ export default function Home() {
                   </Text>
                 </View>
               </View>
-              <ArrowRight size={20} color="black" />
+              {closingAccount ? (
+                <ActivityIndicator size={20} color="red" />
+              ) : (
+                <ArrowRight size={20} color="black" />
+              )}
             </TouchableOpacity>
           </View>
         </View>
