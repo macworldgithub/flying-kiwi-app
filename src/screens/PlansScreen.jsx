@@ -18,8 +18,7 @@ import { API_BASE_URL } from "../utils/config";
 import { theme } from "../utils/theme";
 import axios from "axios";
 import { PaymentCard } from "../components/PaymentCard";
-import { TokenCard } from "../components/TokenCard";
-import { PaymentProcessCard } from "../components/PaymentProcessCard";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function PlansScreen() {
   const [plans, setPlans] = useState([]);
@@ -34,8 +33,6 @@ export default function PlansScreen() {
 
   // Payment flow states
   const [showPayment, setShowPayment] = useState(false);
-  const [showTokenCard, setShowTokenCard] = useState(false);
-  const [showPaymentProcessCard, setShowPaymentProcessCard] = useState(false);
   const [paymentToken, setPaymentToken] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
 
@@ -121,76 +118,80 @@ export default function PlansScreen() {
     setShowPayment(true);
   };
 
-  const handleTokenReceived = (token) => {
+  const handleTokenReceived = async (token) => {
     setPaymentToken(token);
     setShowPayment(false);
-    setShowTokenCard(true);
-  };
 
-  const handlePaymentMethodAdded = (paymentId) => {
-    setPaymentToken(paymentId);
-    setShowTokenCard(false);
-    setShowPaymentProcessCard(true);
-  };
+    if (!customerNo || !selectedPlan) {
+      Alert.alert("Error", "Missing required information");
+      return;
+    }
 
-  const handlePaymentProcessed = async (result) => {
-    setShowPaymentProcessCard(false);
-    if (result?.success && selectedPlan && customerNo) {
-      try {
-        // Get the access token from AsyncStorage
-        const token = await AsyncStorage.getItem("access_token");
-
-        // Make sure we have the required data
-        if (!token) {
-          throw new Error("Authentication token not found");
+    try {
+      // Internal: Add payment method (equivalent to TokenCard logic)
+      const addMethodPayload = {
+        custNo: customerNo,
+        paymentTokenId: token,
+      };
+      const addMethodResponse = await axios.post(
+        `${API_BASE_URL}api/v1/payments/methods`,
+        addMethodPayload,
+        {
+          headers: { "Content-Type": "application/json" },
         }
+      );
 
-        // Call the change-plan endpoint with the correct request format
-        const response = await axios.post(
-          `${API_BASE_URL}api/v1/orders/change-plan`,
-          {
-            customerNo: customerNo,
-            planNo: selectedPlan.planNo,
-            paymentMethodId: paymentToken,
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        const updateData = response.data?.data;
-        console.log("Plan update response data:", updateData);
-        if (updateData) {
-          setCurrentPlan({
-            planNo: selectedPlan.planNo,
-            planName: selectedPlan.planName,
-          });
-
-          Alert.alert(
-            "Success",
-            `Plan updated successfully to ${selectedPlan.planName}`
-          );
-
-          // Refresh plans to update the UI
-          fetchPlans();
-        } else {
-          throw new Error(response.data?.message || "Failed to update plan");
-        }
-      } catch (error) {
-        console.error("Plan update error:", error);
-        Alert.alert(
-          "Error",
-          error.response?.data?.message ||
-            error.message ||
-            "Failed to update plan. Please try again."
+      if (!addMethodResponse.data?.data?.paymentId) {
+        throw new Error(
+          addMethodResponse.data?.message || "Failed to add payment method"
         );
       }
-    } else {
+
+      const paymentId = addMethodResponse.data.data.paymentId;
+
+      // Internal: Upgrade plan via PATCH (after payment method added)
+      const authToken = await AsyncStorage.getItem("access_token");
+      if (!authToken) {
+        throw new Error("Authentication token not found");
+      }
+
+      const patchResponse = await axios.patch(
+        `${API_BASE_URL}api/v1/plans/${selectedPlan.planNo}`,
+        {}, // empty body
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+            accept: "*/*",
+          },
+        }
+      );
+
+      const updateData = patchResponse.data?.data;
+      console.log("Plan update response data:", updateData);
+      if (updateData) {
+        setCurrentPlan({
+          planNo: selectedPlan.planNo,
+          planName: selectedPlan.planName,
+        });
+
+        Alert.alert(
+          "Success",
+          `Plan updated successfully to ${selectedPlan.planName}`
+        );
+
+        // Refresh plans to update the UI
+        fetchPlans();
+      } else {
+        throw new Error(patchResponse.data?.message || "Failed to update plan");
+      }
+    } catch (error) {
+      console.error("Upgrade error:", error);
       Alert.alert(
         "Error",
-        result?.message || "Payment was not successful. Please try again."
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to process upgrade. Please try again."
       );
     }
   };
@@ -359,7 +360,7 @@ export default function PlansScreen() {
         </ScrollView>
       )}
 
-      {/* Payment Modals */}
+      {/* Payment Modal */}
       <Modal
         visible={showPayment}
         animationType="slide"
@@ -385,83 +386,6 @@ export default function PlansScreen() {
               <PaymentCard
                 onTokenReceived={handleTokenReceived}
                 onClose={() => setShowPayment(false)}
-              />
-            )}
-          </View>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal
-        visible={showTokenCard}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowTokenCard(false)}
-      >
-        <SafeAreaView style={tw`flex-1 bg-white`}>
-          <View style={tw`p-4 border-b border-gray-200`}>
-            <View style={tw`flex-row items-center justify-between`}>
-              <TouchableOpacity onPress={() => setShowTokenCard(false)}>
-                <Icon
-                  name="arrow-left"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-xl font-bold`}>Confirm Token</Text>
-              <View style={tw`w-6`} />
-            </View>
-          </View>
-          <View style={tw`flex-1 p-4`}>
-            {selectedPlan && customerNo && (
-              //   <TokenCard
-              //     token={paymentToken}
-              //     custNo={customerNo}
-              //     onSuccess={handlePaymentMethodAdded}
-              //     onClose={() => setShowTokenCard(false)}
-              //   />
-              <TokenCard
-                token={paymentToken}
-                custNo={customerNo} // Make sure this is the correct customer number
-                onSuccess={handlePaymentMethodAdded}
-                onClose={() => setShowTokenCard(false)}
-              />
-            )}
-          </View>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal
-        visible={showPaymentProcessCard}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowPaymentProcessCard(false)}
-      >
-        <SafeAreaView style={tw`flex-1 bg-white`}>
-          <View style={tw`p-4 border-b border-gray-200`}>
-            <View style={tw`flex-row items-center justify-between`}>
-              <TouchableOpacity
-                onPress={() => setShowPaymentProcessCard(false)}
-              >
-                <Icon
-                  name="arrow-left"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-              </TouchableOpacity>
-              <Text style={tw`text-xl font-bold`}>Process Payment</Text>
-              <View style={tw`w-6`} />
-            </View>
-          </View>
-          <View style={tw`flex-1 p-4`}>
-            {selectedPlan && customer && customerNo && (
-              <PaymentProcessCard
-                custNo={customerNo}
-                amount={selectedPlan.price}
-                email={customer.email}
-                token={paymentToken}
-                plan={selectedPlan}
-                onProcessed={handlePaymentProcessed}
-                onClose={() => setShowPaymentProcessCard(false)}
               />
             )}
           </View>
