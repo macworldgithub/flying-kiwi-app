@@ -23,7 +23,7 @@ const Login = () => {
   const [hasBiometric, setHasBiometric] = useState(false);
   const [showBiometricScreen, setShowBiometricScreen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
+  const [identifierInput, setIdentifierInput] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -81,8 +81,8 @@ const Login = () => {
   };
 
   const handleLogin = async () => {
-    if (!emailInput || !pinInput) {
-      Alert.alert("Missing Fields", "Please enter both email and PIN.");
+    if (!identifierInput || !pinInput) {
+      Alert.alert("Missing Fields", "Please enter both identifier and PIN.");
       return;
     }
 
@@ -95,7 +95,7 @@ const Login = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: emailInput.trim(),
+          identifier: identifierInput.trim(),
           pin: pinInput,
         }),
       });
@@ -108,8 +108,10 @@ const Login = () => {
 
       await AsyncStorage.setItem("userData", JSON.stringify(data));
       await AsyncStorage.setItem("access_token", data.access_token);
-      await AsyncStorage.setItem("lastEmail", emailInput.trim());
+      await AsyncStorage.setItem("lastIdentifier", identifierInput.trim());
       await AsyncStorage.setItem("lastPin", pinInput);
+
+      
 
       Alert.alert("Success", "Login successful!", [
         {
@@ -262,11 +264,11 @@ const Login = () => {
 
             <TextInput
               style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
-              placeholder="Enter Email"
+              placeholder="Enter Identifier (email or custNo)"
               placeholderTextColor="#9CA3AF"
-              value={emailInput}
+              value={identifierInput}
               onChangeText={(text) => {
-                setEmailInput(text);
+                setIdentifierInput(text);
               }}
               autoCapitalize="none"
               keyboardType="email-address"
