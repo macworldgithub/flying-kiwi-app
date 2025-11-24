@@ -7,6 +7,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import tw from "tailwind-react-native-classnames";
@@ -25,6 +26,7 @@ export default function Home() {
   const navigation = useNavigation();
   // 🔹 Modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showChangePinModal, setShowChangePinModal] = useState(false); // 👈 ADDED: Change PIN modal state
   const [loading, setLoading] = useState(true);
   // const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +34,13 @@ export default function Home() {
   const [serviceLoading, setServiceLoading] = useState(false);
   const [balance, setBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [mobileBalance, setMobileBalance] = useState(null);
+  const [mobileBalanceLoading, setMobileBalanceLoading] = useState(false);
   const [closingAccount, setClosingAccount] = useState(false);
+  // 👈 ADDED: Change PIN states
+  const [oldPin, setOldPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [changePinLoading, setChangePinLoading] = useState(false);
   // const [user, setUser] = useState({
   // name: "John Doe",
   // accountId: "ACC12345",
@@ -81,6 +89,7 @@ export default function Home() {
         if (customer.custNo) {
           fetchServiceData(customer.custNo);
           fetchBalance(customer.custNo);
+          fetchMobileBalance(customer.custNo);
         }
       } catch (error) {
         setError(error.message);
@@ -118,6 +127,74 @@ export default function Home() {
       setBalanceLoading(false);
     }
   };
+  const fetchMobileBalance = async (custNo) => {
+    try {
+      setMobileBalanceLoading(true);
+      const token = await AsyncStorage.getItem("access_token");
+      const url = `${API_BASE_URL}api/v1/customers/${custNo}/balance/mobile?lineSeqNo=1`;
+      console.log("Calling mobile balance API:", url);
+      const response = await axios.get(url, {
+        headers: {
+          accept: "*/*",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = response.data;
+      console.log("Mobile balance API response:", data);
+      setMobileBalance(data.data || null);
+    } catch (err) {
+      console.error("Mobile balance fetch error:", err);
+    } finally {
+      setMobileBalanceLoading(false);
+    }
+  };
+  // Get plan data for usage calculation
+  const getPlanData = () => {
+    if (!mobileBalance || !mobileBalance.queryItems) return null;
+    let planItem = null;
+    for (let item of mobileBalance.queryItems) {
+      if (
+        item.unitCode === "Data" &&
+        item.accountDesc &&
+        item.accountDesc.includes("Plan")
+      ) {
+        const match = item.accountDesc.match(/(\d+)GB/);
+        if (match) {
+          const totalGB = parseFloat(match[1]);
+          const remainingGB = (item.creditValue || 0) / 1024 ** 3;
+          const usedGB = Math.max(0, totalGB - remainingGB);
+          const percentageUsed = Math.min(
+            100,
+            Math.max(0, (usedGB / totalGB) * 100)
+          );
+          const percentageRemaining = 100 - percentageUsed;
+          planItem = {
+            totalGB,
+            usedGB: usedGB.toFixed(1),
+            remainingGB: remainingGB.toFixed(1),
+            percentageUsed: percentageUsed.toFixed(0),
+            percentageRemaining: percentageRemaining.toFixed(0),
+          };
+          break;
+        }
+      }
+    }
+    return planItem;
+  };
+  const planData = getPlanData();
+  // Fallback to total remaining if no plan found
+  const getTotalRemainingDataGB = () => {
+    if (!mobileBalance || !mobileBalance.queryItems) return 0;
+    let totalDataBytes = 0;
+    mobileBalance.queryItems.forEach((item) => {
+      if (item.unitCode === "Data") {
+        totalDataBytes += item.creditValue || 0;
+        // totalDataBytes = 10474836480;
+      }
+    });
+    return (totalDataBytes / 1024 ** 3).toFixed(2);
+  };
+  const totalRemainingDataGB = getTotalRemainingDataGB();
   const percentageUsed =
     user?.dataLimit > 0
       ? Math.round((user?.dataUsed / user?.dataLimit) * 100)
@@ -137,6 +214,52 @@ export default function Home() {
       }
     } catch (err) {
       console.log("Non-JSON message:", event.nativeEvent.data);
+    }
+  };
+  // 👈 ADDED: Handle Change PIN
+  const handleChangePin = async () => {
+    if (!oldPin || !newPin) {
+      Alert.alert("Missing Fields", "Please enter both old and new PIN.");
+      return;
+    }
+    if (newPin.length < 4) {
+      Alert.alert("Invalid PIN", "New PIN must be at least 4 digits.");
+      return;
+    }
+    try {
+      setChangePinLoading(true);
+      const token = await AsyncStorage.getItem("access_token");
+      if (!token) {
+        Alert.alert("Error", "No authentication token found.");
+        return;
+      }
+      const response = await axios.put(
+        `${API_BASE_URL}auth/change-pin`,
+        {
+          oldPin: oldPin,
+          newPin: newPin,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            accept: "application/json",
+          },
+        }
+      );
+      const data = response.data;
+      Alert.alert("Success", data.message || "PIN changed successfully.");
+      setShowChangePinModal(false);
+      setOldPin("");
+      setNewPin("");
+    } catch (error) {
+      console.error("Change PIN error:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "Failed to change PIN."
+      );
+    } finally {
+      setChangePinLoading(false);
     }
   };
   const handleCloseAccount = async () => {
@@ -197,71 +320,33 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         style={tw`flex-1 px-4 pt-4`}
       >
-        {/* Header */}
-        {/* <View style={tw`flex-row items-center py-4 mb-4`}>
-          <View style={tw`w-12 h-12 bg-gray-300 rounded-full`} />
-          <View style={tw`ml-3`}>
-            <Text style={tw`text-black font-bold`}>Welcome</Text>
-            <Text style={tw`text-sm text-gray-400`}>{user.name}</Text>
-          </View>
-          <View style={tw`ml-auto flex-row`}>
-            <Bell size={24} color="black" style={tw`mr-4`} />
-            <Icon
-              name="log-out"
-              size={22}
-              color="black"
-              onPress={async () => {
-                Alert.alert(
-                  "Confirm Logout",
-                  "Are you sure you want to log out?",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Logout",
-                      style: "destructive",
-                      onPress: async () => {
-                        try {
-                          await AsyncStorage.multiRemove([
-                            "userData",
-                            "access_token",
-                            "lastEmail",
-                            "lastPin",
-                          ]);
-                          navigation.reset({
-                            index: 0,
-                            routes: [{ name: "Login" }],
-                          });
-                        } catch (error) {
-                          console.error("Error clearing AsyncStorage:", error);
-                        }
-                      },
-                    },
-                  ]
-                );
-              }}
-            />
-          </View>
-        </View> */}
         <View style={tw`flex-row items-center py-4 mb-4`}>
           {/* <View style={tw`w-12 h-12 bg-gray-300 rounded-full`} /> */}
           <View style={tw`ml-3`}>
             <Text style={tw`text-black font-bold`}>Welcome</Text>
             {loading && <Text style={tw`text-gray-500`}>Loading...</Text>}
             {error && <Text style={tw`text-red-500`}>Error: {error}</Text>}
-            {/* {user && (
-              <View>
-                <Text style={tw`text-base text-black font-semibold`}>
-                  {user.name}
-                </Text>
-                <Text style={tw`text-sm text-gray-500`}>{user.email}</Text>
-              </View>
-            )} */}
+
             {user ? (
               <View>
                 <Text style={tw`text-base text-black font-semibold`}>
                   {user?.name}
                 </Text>
                 <Text style={tw`text-sm text-gray-500`}>{user?.email}</Text>
+                {/* 👈 ADDED: Change PIN Button */}
+                <TouchableOpacity
+                  onPress={() => setShowChangePinModal(true)}
+                  style={tw`mt-1`}
+                >
+                  <Text
+                    style={[
+                      tw`text-sm font-medium underline`,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    Change PIN
+                  </Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <ActivityIndicator />
@@ -338,24 +423,57 @@ export default function Home() {
           style={tw`bg-white mx-2 p-4 rounded-xl border border-gray-200 mb-4`}
         >
           <Text style={tw`font-semibold mb-2`}>Data Usage</Text>
-          <Text style={tw`text-black`}>
-            This Month: {user?.dataUsed} / {user?.dataLimit} GB
-          </Text>
-          <View style={tw`w-full bg-gray-200 h-2 rounded-full mt-2`}>
-            <View
-              style={[
-                tw`h-2 rounded-full`,
-                {
-                  backgroundColor: theme.colors.secondary,
-                  width: `${percentageUsed}%`,
-                },
-              ]}
-            />
-          </View>
-          <View style={tw`flex-row justify-between mt-2`}>
-            <Text style={tw`text-gray-500`}>{percentageUsed}% used</Text>
-            <Text style={tw`text-gray-500`}>{remainingData} GB remaining</Text>
-          </View>
+          {mobileBalanceLoading ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          ) : planData ? (
+            <>
+              <Text style={tw`text-black`}>
+                This Month: {planData.usedGB} / {planData.totalGB} GB
+              </Text>
+              <View style={tw`w-full bg-gray-200 h-2 rounded-full mt-2`}>
+                <View
+                  style={[
+                    tw`h-2 rounded-full`,
+                    {
+                      backgroundColor: theme.colors.secondary,
+                      width: `${planData.percentageRemaining}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={tw`flex-row justify-between mt-2`}>
+                <Text style={tw`text-gray-500`}>
+                  {planData.percentageUsed}% used
+                </Text>
+                <Text style={tw`text-gray-500`}>
+                  {planData.remainingGB} GB remaining
+                </Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={tw`text-black`}>
+                Remaining Data: {totalRemainingDataGB} GB
+              </Text>
+              <View style={tw`w-full bg-gray-200 h-2 rounded-full mt-2`}>
+                <View
+                  style={[
+                    tw`h-2 rounded-full`,
+                    {
+                      backgroundColor: theme.colors.secondary,
+                      width: "100%",
+                    },
+                  ]}
+                />
+              </View>
+              <View style={tw`flex-row justify-between mt-2`}>
+                <Text style={tw`text-gray-500`}>0% used</Text>
+                <Text style={tw`text-gray-500`}>
+                  {totalRemainingDataGB} GB remaining
+                </Text>
+              </View>
+            </>
+          )}
         </View>
         {/* Current Plan */}
         <View
@@ -770,6 +888,82 @@ export default function Home() {
           </View>
           {/* previous publishable key */}
           {/* C01967_PUB_yq7vmrc8abkyjxmkp4iqbdxnqpx8vb4p8fnau7x7fz4shpwpqqyah6fmhzww */}
+        </View>
+      </Modal>
+      {/* 👈 ADDED: Change PIN Modal */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={showChangePinModal}
+        onRequestClose={() => setShowChangePinModal(false)}
+      >
+        <View
+          style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}
+        >
+          <View style={[tw`bg-white rounded-2xl p-6 w-4/5`, { maxWidth: 320 }]}>
+            <Text style={tw`text-lg font-bold text-center mb-4`}>
+              Change Your PIN
+            </Text>
+            <Text style={tw`text-gray-600 mb-4 text-center`}>
+              Enter your old PIN and new PIN to update it.
+            </Text>
+            <TextInput
+              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
+              placeholder="Old PIN"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry
+              keyboardType="numeric"
+              value={oldPin}
+              onChangeText={setOldPin}
+              maxLength={4}
+            />
+            <TextInput
+              style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-4`}
+              placeholder="New PIN (min 4 digits)"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry
+              keyboardType="numeric"
+              value={newPin}
+              onChangeText={setNewPin}
+              maxLength={4}
+            />
+            <TouchableOpacity
+              style={[
+                tw`py-3 rounded-lg mb-3`,
+                { backgroundColor: theme.colors.primary },
+              ]}
+              onPress={handleChangePin}
+              disabled={changePinLoading}
+            >
+              {changePinLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={tw`text-white text-center font-semibold`}>
+                  Update PIN
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setShowChangePinModal(false);
+                setOldPin("");
+                setNewPin("");
+              }}
+              style={[
+                tw`border py-3 rounded-lg`,
+                { borderColor: theme.colors.primary },
+              ]}
+            >
+              <Text
+                style={[
+                  tw`text-center font-semibold`,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
