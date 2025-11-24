@@ -1789,29 +1789,6 @@ const Login = () => {
           </Text>
         </Pressable>
 
-        <Pressable
-          onPress={() => {
-            setIdentifierInput("");
-            setPinInput("");
-          }}
-          style={({ pressed }) => [
-            tw`border py-3 rounded-lg mb-3`,
-            {
-              borderColor: theme.colors.primary,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              tw`text-center font-semibold`,
-              { color: theme.colors.primary },
-            ]}
-          >
-            Cancel
-          </Text>
-        </Pressable>
-
         <Text style={tw`text-center text-black text-xl my-2`}>or</Text>
 
         <Pressable
