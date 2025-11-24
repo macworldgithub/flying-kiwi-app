@@ -1510,14 +1510,7 @@ const Login = () => {
       await AsyncStorage.setItem("lastIdentifier", identifierInput.trim());
       await AsyncStorage.setItem("lastPin", pinInput);
 
-      Alert.alert("Success", "Login successful!", [
-        {
-          text: "OK",
-          onPress: () => {
-            navigation.replace("Home");
-          },
-        },
-      ]);
+      navigation.replace("Home");
     } catch (error) {
       Alert.alert("Login Failed", error.message || "Unauthorized access.");
     } finally {
@@ -1731,7 +1724,7 @@ const Login = () => {
 
         <TextInput
           style={tw`border border-gray-300 rounded-lg px-3 py-2 mb-3`}
-          placeholder="Enter Identifier (email or custNo)"
+          placeholder="Email or Customer Number"
           placeholderTextColor="#9CA3AF"
           value={identifierInput}
           onChangeText={(text) => {
