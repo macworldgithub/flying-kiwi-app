@@ -163,6 +163,14 @@ const BillQuery = () => {
       )
     : 0;
 
+  // Helper function to display name with condition
+  const getDisplayName = (name) => {
+    if (name === "SimplyBig Unlimited") {
+      return "Just Mobile";
+    }
+    return name || "N/A";
+  };
+
   return (
     <SafeAreaView
       style={[
@@ -207,7 +215,7 @@ const BillQuery = () => {
                       style={tw`mb-4 border-b border-gray-200 pb-3`}
                     >
                       <Text style={tw`text-sm font-medium text-gray-800 mb-1`}>
-                        {item.name || "N/A"} (CSN: {item.csn || "N/A"})
+                        {getDisplayName(item.name)}
                       </Text>
                       <View style={tw`flex-row justify-between py-1`}>
                         <Text style={tw`text-xs text-gray-600`}>
@@ -230,7 +238,7 @@ const BillQuery = () => {
                           Total Charge:
                         </Text>
                         <Text style={tw`text-xs font-medium`}>
-                          AUD {parseFloat(item.totalCharge || 0).toFixed(2)}
+                          $ {parseFloat(item.totalCharge || 0).toFixed(2)}
                         </Text>
                       </View>
                       <View style={tw`flex-row justify-between py-1`}>
@@ -238,7 +246,7 @@ const BillQuery = () => {
                           Total Other:
                         </Text>
                         <Text style={tw`text-xs font-medium`}>
-                          AUD {item.totalOther || 0}
+                          $ {item.totalOther || 0}
                         </Text>
                       </View>
                       <View style={tw`flex-row justify-between py-1`}>
@@ -246,7 +254,7 @@ const BillQuery = () => {
                           Total VSP Cost:
                         </Text>
                         <Text style={tw`text-xs font-medium`}>
-                          AUD {parseFloat(item.totalVSPCost || 0).toFixed(2)}
+                          $ {parseFloat(item.totalVSPCost || 0).toFixed(2)}
                         </Text>
                       </View>
                       {index < unbilledData.length - 1 && (
@@ -259,7 +267,7 @@ const BillQuery = () => {
                       Total Amount Due
                     </Text>
                     <Text style={tw`text-sm font-semibold`}>
-                      AUD {totalCharge.toFixed(2)}
+                      $ {totalCharge.toFixed(2)}
                     </Text>
                   </View>
                 </>
@@ -286,7 +294,8 @@ const BillQuery = () => {
                       <Text
                         style={tw`text-sm font-medium text-gray-800 mb-2 border-b border-gray-200 pb-1`}
                       >
-                        Details for {item.name || "N/A"} (CSN: {item.csn})
+                        Details for {getDisplayName(item.name)} (CSN: {item.csn}
+                        )
                       </Text>
                       {unbilledDetails[item.csn] &&
                       unbilledDetails[item.csn].length > 0 ? (
@@ -311,11 +320,10 @@ const BillQuery = () => {
                                 </View>
                                 <View style={tw`text-right`}>
                                   <Text style={tw`text-xs font-medium`}>
-                                    AUD{" "}
-                                    {parseFloat(detail.charge || 0).toFixed(2)}
+                                    ${parseFloat(detail.charge || 0).toFixed(2)}
                                   </Text>
                                   <Text style={tw`text-xs text-gray-500`}>
-                                    VSP: AUD{" "}
+                                    VSP: $
                                     {parseFloat(detail.vspCost || 0).toFixed(2)}
                                   </Text>
                                 </View>
@@ -330,7 +338,7 @@ const BillQuery = () => {
                               Subtotal for {item.csn}
                             </Text>
                             <Text style={tw`text-sm font-semibold`}>
-                              AUD{" "}
+                              $
                               {unbilledDetails[item.csn]
                                 .reduce(
                                   (acc, d) => acc + parseFloat(d.charge || 0),
