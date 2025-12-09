@@ -19,7 +19,6 @@
 // import { LinearGradient } from "expo-linear-gradient";
 // import AsyncStorage from "@react-native-async-storage/async-storage";
 // import DateTimePicker from "@react-native-community/datetimepicker";
-// import { PaymentProcessCard } from "../components/PaymentProcessCard";
 // import { PaymentCard } from "../components/PaymentCard";
 // import { API_BASE_URL } from "../utils/config";
 // const ChatScreen = ({ navigation }) => {
@@ -42,9 +41,9 @@
 //   const [numberOptions, setNumberOptions] = useState([]);
 //   const [showDatePicker, setShowDatePicker] = useState(false);
 //   const [dobDateObj, setDobDateObj] = useState(new Date(1990, 0, 1));
+//   const [tempDobDate, setTempDobDate] = useState(new Date(1990, 0, 1));
 //   const { width } = useWindowDimensions();
 //   const [showPayment, setShowPayment] = useState(false);
-//   const [showPaymentProcessCard, setShowPaymentProcessCard] = useState(false);
 //   const [paymentToken, setPaymentToken] = useState(null);
 //   const [selectedPlan, setSelectedPlan] = useState(null);
 //   const [plans, setPlans] = useState([]);
@@ -66,7 +65,30 @@
 //     pin: "",
 //   });
 //   const [formErrors, setFormErrors] = useState({});
+//   const [orderActivated, setOrderActivated] = useState(false);
+//   const [showNumberTypeSelection, setShowNumberTypeSelection] = useState(false);
+//   const [isPorting, setIsPorting] = useState(false);
+//   const [existingNumber, setExistingNumber] = useState("");
+//   const [showExistingNumberInput, setShowExistingNumberInput] = useState(false);
+//   const [numType, setNumType] = useState(null);
+//   const [showNumTypeSelection, setShowNumTypeSelection] = useState(false);
+//   const [arn, setArn] = useState("");
+//   const [showArnInput, setShowArnInput] = useState(false);
+//   const [showArnConfirm, setShowArnConfirm] = useState(false);
+//   const [hasSelectedNumber, setHasSelectedNumber] = useState(false);
 //   const scrollViewRef = useRef();
+//   const addBotMessage = (text) => {
+//     const botMsg = {
+//       id: Date.now() + Math.floor(Math.random() * 1000),
+//       type: "bot",
+//       text,
+//       time: new Date().toLocaleTimeString([], {
+//         hour: "2-digit",
+//         minute: "2-digit",
+//       }),
+//     };
+//     setChat((prev) => [...prev, botMsg]);
+//   };
 //   // Form handling
 //   const handleFormChange = (name, value) => {
 //     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -149,17 +171,28 @@
 //     setFormErrors(errors);
 //     return isValid;
 //   };
+//   const formatDob = (isoDate) => {
+//     if (!isoDate) return "";
+//     const [year, month, day] = isoDate.split("-");
+//     return `${day}/${month}/${year}`;
+//   };
 //   const handleFormSubmit = async () => {
 //     if (!validateForm()) return;
 //     // Construct full address as per desired payload
-//     const fullAddress = `${formData.address}, ${formData.suburb} ${formData.state} ${formData.postcode}, Australia`;
-//     const formatted = Object.entries({ ...formData, address: fullAddress })
-//       .map(([key, value]) => `${key}: ${value}`)
-//       .join(", ");
+//     const fullAddress = `${formData.address.trim()}, ${formData.suburb.trim()} ${formData.state.trim()} ${formData.postcode.trim()}, Australia`;
 //     try {
 //       // Store the form data with full address
-//       const formDataCopy = { ...formData, address: fullAddress };
+//       const formDataCopy = {
+//         ...formData,
+//         firstName: formData.firstName.trim(),
+//         surname: formData.surname.trim(),
+//         email: formData.email.trim(),
+//         phone: formData.phone.trim(),
+//         dob: formatDob(formData.dob),
+//         address: fullAddress,
+//       };
 //       setSubmittedSignupDetails(formDataCopy);
+//       await AsyncStorage.setItem("dob", formatDob(formData.dob));
 //       // Reset form data
 //       setFormData({
 //         firstName: "",
@@ -173,201 +206,99 @@
 //         postcode: "",
 //         pin: "",
 //       });
+//       setShowNumberButtons(false);
+//       setHasSelectedNumber(false);
 //       // Close the signup form
 //       setShowSignupForm(false);
-//       // Send the form data to chat
-//       await handleSend(formatted);
+//       // Show number type selection
+//       setShowNumberTypeSelection(true);
 //     } catch (error) {
 //       console.error("Form submission error:", error);
 //       Alert.alert("Error", "Failed to submit form. Please try again.");
 //     }
 //   };
-//   const handleSend = async (msgText, retryWithoutSession = false) => {
-//     if (!msgText.trim() || loading) return;
-
-//     // === 1. Skip internal commands (don't process via bot) ===
-//     const internalCommands = [
-//       "SELECT_PLAN:",
-//       "Payment method successfully added!",
-//       "Payment processing completed!",
-//     ];
-//     if (internalCommands.some((cmd) => msgText.startsWith(cmd))) {
-//       // Don't show internal message in chat
+//   const handleNewNumber = () => {
+//     Alert.alert("Confirm New Number", "Are you sure you want new number?", [
+//       { text: "No", style: "cancel" },
+//       {
+//         text: "Yes",
+//         onPress: async () => {
+//           setIsPorting(false);
+//           setShowNumberTypeSelection(false);
+//           const formatted = Object.entries(submittedSignupDetails)
+//             .map(([key, value]) => `${key}: ${value}`)
+//             .join(", ");
+//           setLoading(true);
+//           await handleSend(formatted, false, true, false);
+//           setLoading(false);
+//         },
+//       },
+//     ]);
+//   };
+//   const handleExistingNumberSelect = () => {
+//     Alert.alert(
+//       "Confirm Existing Number",
+//       "Are you sure you want existing number?",
+//       [
+//         { text: "No", style: "cancel" },
+//         {
+//           text: "Yes",
+//           onPress: async () => {
+//             setIsPorting(true);
+//             setShowNumberTypeSelection(false);
+//             setShowNumberButtons(false);
+//             const formatted = Object.entries(submittedSignupDetails)
+//               .map(([key, value]) => `${key}: ${value}`)
+//               .join(", ");
+//             setLoading(true);
+//             await handleSend(formatted, false, true, true);
+//             setLoading(false);
+//             setShowExistingNumberInput(true);
+//           },
+//         },
+//       ]
+//     );
+//   };
+//   const handleExistingNumberConfirm = async () => {
+//     if (!/^04\d{8}$/.test(existingNumber)) {
+//       Alert.alert(
+//         "Error",
+//         "Please enter a valid Australian mobile number (04XXXXXXXX)."
+//       );
 //       return;
 //     }
-
-//     // === 2. Create user message ===
-//     const userMsg = {
-//       id: Date.now() + Math.floor(Math.random() * 1000),
-//       type: "user",
-//       text: msgText.trim(),
-//       time: new Date().toLocaleTimeString([], {
-//         hour: "2-digit",
-//         minute: "2-digit",
-//       }),
-//     };
-
-//     setChat((prev) => [...prev, userMsg]);
-//     setMessage("");
 //     setLoading(true);
-
-//     try {
-//       let payload = {
-//         query: userMsg.text,
-//         brand: "Flying-Kiwi",
-//       };
-
-//       // === 3. Handle special case: Plan selection via planNo ===
-//       if (msgText.startsWith("SELECT_PLAN:")) {
-//         const planId = msgText.replace("SELECT_PLAN:", "").trim();
-//         payload = {
-//           ...payload,
-//           planNo: planId,
-//           query: "select plan", // Optional: use a neutral query
-//         };
-//       }
-
-//       if (!retryWithoutSession && sessionId) {
-//         payload.session_id = sessionId;
-//       }
-
-//       const token = await AsyncStorage.getItem("access_token");
-//       const headers = {
-//         Accept: "application/json",
-//         "Content-Type": "application/json",
-//       };
-//       if (token) {
-//         headers.Authorization = `Bearer ${token}`;
-//       }
-
-//       const response = await fetch(`${API_BASE_URL}chat/query`, {
-//         method: "POST",
-//         headers,
-//         body: JSON.stringify(payload),
-//       });
-
-//       if (!response.ok) {
-//         const errorBody = await response.text();
-//         throw new Error(
-//           `HTTP ${response.status}: ${errorBody || response.statusText}`
-//         );
-//       }
-
-//       const data = await response.json();
-
-//       // === 4. Update session ===
-//       if (!sessionId && !retryWithoutSession && data.session_id) {
-//         setSessionId(data.session_id);
-//         try {
-//           await AsyncStorage.setItem("chat_session_id", data.session_id);
-//         } catch (e) {
-//           // ignore
-//         }
-//       }
-
-//       if (data?.custNo) {
-//         setCustNo(data.custNo);
-//       }
-
-//       // === 5. Get raw bot response ===
-//       const originalBotText =
-//         data?.message || data?.response || "Sorry, I couldn’t understand that.";
-//       let displayBotText = originalBotText;
-//       const lowerOriginal = originalBotText.toLowerCase();
-
-//       // === 6. UI Triggers (Signup, Numbers, etc.) ===
-//       let triggerSignup = false;
-//       let triggerNumbers = false;
-
-//       if (
-//         lowerOriginal.includes("please provide your first name") ||
-//         isDetailsRequest(originalBotText)
-//       ) {
-//         displayBotText =
-//           "Your information is required for signup. Please fill out the form below.";
-//         triggerSignup = true;
-//       }
-
-//       const numbersMatch = originalBotText.match(/04\d{8}/g);
-//       if (numbersMatch && numbersMatch.length === 5) {
-//         const numbers = extractNumbers(originalBotText);
-//         setNumberOptions(numbers);
-//         setShowNumberButtons(true);
-//         displayBotText = "Please select a number from these available numbers.";
-//         triggerNumbers = true;
-//       }
-
-//       // === 7. Override: When user sends a phone number → show plans ===
-//       if (userMsg.text.match(/^04\d{8}$/)) {
-//         displayBotText = "Please select a plan from the available options.";
-//       }
-
-//       // === 8. FINAL: Skip bot reply for internal actions ===
-//       const skipBotReply = [
-//         "SELECT_PLAN:",
-//         "Payment method successfully added!",
-//         "Payment processing completed!",
-//       ].some((cmd) => userMsg.text.includes(cmd));
-
-//       if (!skipBotReply) {
-//         const botMsg = {
-//           id: Date.now() + Math.floor(Math.random() * 1000),
-//           type: "bot",
-//           text: displayBotText,
-//           time: new Date().toLocaleTimeString([], {
-//             hour: "2-digit",
-//             minute: "2-digit",
-//           }),
-//         };
-//         setChat((prev) => [...prev, botMsg]);
-//       }
-
-//       // === 9. Trigger UI ===
-//       if (triggerSignup) {
-//         setShowSignupForm(true);
-//       }
-//     } catch (error) {
-//       console.error("Chat error:", error);
-//       let errorMsg = "Oops! Something went wrong. Please try again.";
-
-//       if (error.message.includes("Failed to fetch")) {
-//         errorMsg = "Network error. Please try again.";
-//       } else if (error.payload?.includes("401")) {
-//         errorMsg = "Session expired. Please log in again.";
-//       }
-
-//       const errorResponse = {
-//         id: Date.now() + Math.floor(Math.random() * 1000),
-//         type: "bot",
-//         text: errorMsg,
-//         time: new Date().toLocaleTimeString([], {
-//           hour: "2-digit",
-//           minute: "2-digit",
-//         }),
-//       };
-//       setChat((prev) => [...prev, errorResponse]);
-
-//       if (error.message.includes("Invalid session") && !retryWithoutSession) {
-//         await clearSession();
-//         setTimeout(() => handleSend(msgText, true), 500);
-//       }
-//     } finally {
-//       setLoading(false);
+//     await handleSend(existingNumber, false, true, true);
+//     setLoading(false);
+//     setSelectedSim(existingNumber);
+//     setShowExistingNumberInput(false);
+//     setShowNumTypeSelection(true);
+//   };
+//   const handlePrepaid = async () => {
+//     setNumType("prepaid");
+//     setShowNumTypeSelection(false);
+//     setLoading(true);
+//     await handleSend(`numType: prepaid`, false, true, true);
+//     setLoading(false);
+//     addBotMessage(
+//       `Thanks for signup and enter existing number ${existingNumber}. Now please choose a plan.`
+//     );
+//     await fetchPlansAndShow();
+//   };
+//   const handlePostpaid = () => {
+//     setNumType("postpaid");
+//     setShowNumTypeSelection(false);
+//     setShowArnInput(true);
+//   };
+//   const handleArnInputConfirm = () => {
+//     if (!arn.trim()) {
+//       Alert.alert("Error", "Please enter a valid ARN.");
+//       return;
 //     }
+//     setShowArnInput(false);
+//     setShowArnConfirm(true);
 //   };
-//   const sendMessage = () => {
-//     handleSend(message);
-//   };
-//   // Helper functions
-//   const extractNumbers = (text) => {
-//     const matches = text.match(/04\d{8}/g);
-//     return matches || [];
-//   };
-//   const handleNumberSelect = async (number) => {
-//     setSelectedSim(number);
-//     setShowNumberButtons(false);
-//     await handleSend(number);
-//     // Fetch plans after number selection
+//   const fetchPlansAndShow = async () => {
 //     try {
 //       const plansResponse = await fetch(`${API_BASE_URL}api/v1/plans`, {
 //         method: "GET",
@@ -395,63 +326,209 @@
 //       setChat((prev) => [...prev, errorMsg]);
 //     }
 //   };
+//   const handleSend = async (
+//     msgText,
+//     retryWithoutSession = false,
+//     silent = false,
+//     localIsPorting = isPorting
+//   ) => {
+//     if (!msgText.trim() || loading) return;
+//     const query = msgText.trim();
+//     let userMsg;
+//     if (!silent) {
+//       userMsg = {
+//         id: Date.now() + Math.floor(Math.random() * 1000),
+//         type: "user",
+//         text: query,
+//         time: new Date().toLocaleTimeString([], {
+//           hour: "2-digit",
+//           minute: "2-digit",
+//         }),
+//       };
+//       setChat((prev) => [...prev, userMsg]);
+//       setMessage("");
+//       setLoading(true);
+//     }
+//     try {
+//       let payload = {
+//         query,
+//         brand: "Flying-Kiwi",
+//       };
+//       if (!retryWithoutSession && sessionId) {
+//         payload.session_id = sessionId;
+//       }
+//       const token = await AsyncStorage.getItem("access_token");
+//       const headers = {
+//         Accept: "application/json",
+//         "Content-Type": "application/json",
+//       };
+//       if (token) {
+//         headers.Authorization = `Bearer ${token}`;
+//       }
+//       const response = await fetch(`${API_BASE_URL}chat/query`, {
+//         method: "POST",
+//         headers,
+//         body: JSON.stringify(payload),
+//       });
+//       if (!response.ok) {
+//         const errorBody = await response.text();
+//         throw new Error(
+//           `HTTP ${response.status}: ${errorBody || response.statusText}`
+//         );
+//       }
+//       const data = await response.json();
+//       if (!sessionId && !retryWithoutSession && data.session_id) {
+//         setSessionId(data.session_id);
+//         try {
+//           await AsyncStorage.setItem("chat_session_id", data.session_id);
+//         } catch (e) {
+//           // ignore storage errors
+//         }
+//       }
+//       if (data?.custNo) {
+//         setCustNo(data.custNo);
+//       }
+//       const originalBotText =
+//         data?.message || data?.response || "Sorry, I couldn’t understand that.";
+//       let displayBotText = originalBotText;
+//       const lowerOriginal = originalBotText.toLowerCase();
+//       // Check for signup trigger and override message
+//       let triggerSignup = false;
+//       if (
+//         lowerOriginal.includes("please provide your first name") ||
+//         isDetailsRequest(originalBotText)
+//       ) {
+//         displayBotText =
+//           "Your information is required for signup. Please fill out the form below.";
+//         triggerSignup = true;
+//       }
+//       // Check for numbers trigger and override message
+//       const numbersMatch = originalBotText.match(/04\d{8}/g);
+//       let triggerNumbers = false;
+//       if (
+//         numbersMatch &&
+//         numbersMatch.length === 5 &&
+//         !localIsPorting &&
+//         !hasSelectedNumber
+//       ) {
+//         const numbers = extractNumbers(originalBotText);
+//         setNumberOptions(numbersMatch);
+//         setShowNumberButtons(true);
+//         displayBotText =
+//           "Thanks, now it’s time to choose a number from the selection below";
+//         triggerNumbers = true;
+//       }
+//       // Check for plan trigger (when user sends a phone number)
+//       if (query.match(/^04\d{8}$/)) {
+//         displayBotText = "Please select a plan from the available options.";
+//       }
+//       const botMsg = {
+//         id: Date.now() + Math.floor(Math.random() * 1000),
+//         type: "bot",
+//         text: displayBotText,
+//         time: new Date().toLocaleTimeString([], {
+//           hour: "2-digit",
+//           minute: "2-digit",
+//         }),
+//       };
+//       if (!silent) {
+//         setChat((prev) => [...prev, botMsg]);
+//       } else if (triggerSignup || triggerNumbers) {
+//         setChat((prev) => [...prev, botMsg]);
+//       }
+//       // Handle native UI triggers based on bot response
+//       if (triggerSignup) {
+//         setShowSignupForm(true);
+//       }
+//     } catch (error) {
+//       console.error("Chat error:", error);
+//       let errorMsg = "Oops! Something went wrong. Please try again.";
+//       if (error.message.includes("Failed to fetch")) {
+//         errorMsg = "Network error. Please try again.";
+//       } else if (error.message.includes("401")) {
+//         errorMsg = "Session expired. Please log in again.";
+//       }
+//       const errorResponse = {
+//         id: Date.now() + Math.floor(Math.random() * 1000),
+//         type: "bot",
+//         text: errorMsg,
+//         time: new Date().toLocaleTimeString([], {
+//           hour: "2-digit",
+//           minute: "2-digit",
+//         }),
+//       };
+//       if (!silent) {
+//         setChat((prev) => [...prev, errorResponse]);
+//       }
+//       // Retry without session if invalid
+//       if (error.message.includes("Invalid session") && !retryWithoutSession) {
+//         await clearSession();
+//         setTimeout(() => {
+//           handleSend(msgText, true, silent, localIsPorting);
+//         }, 500);
+//       }
+//     } finally {
+//       if (!silent) {
+//         setLoading(false);
+//       }
+//     }
+//   };
+//   const sendMessage = () => {
+//     handleSend(message);
+//   };
+//   // Helper functions
+//   const extractNumbers = (text) => {
+//     const matches = text.match(/04\d{8}/g);
+//     return matches || [];
+//   };
+//   const handleNumberSelect = async (number) => {
+//     setSelectedSim(number);
+//     setShowNumberButtons(false);
+//     setHasSelectedNumber(true);
+//     setLoading(true);
+//     await handleSend(number, false, true, false);
+//     setLoading(false);
+//     // Fetch plans after number selection
+//     await fetchPlansAndShow();
+//   };
 //   const handlePlanSelect = async (plan) => {
-//     const planId = String(plan.planNo || plan.id || plan.planId || "UNKNOWN");
 //     setSelectedPlan(plan);
-//     setPlanNo(planId);
+//     setPlanNo(String(plan.planNo || plan.id || "PLAN001"));
 //     setShowPlans(false);
-
-//     // Show clean user message
-//     const userFriendlyMsg = {
-//       id: Date.now(),
-//       type: "user",
-//       text: `I choose the ${plan.planName || plan.name} plan ($${plan.price})`,
-//       time: new Date().toLocaleTimeString([], {
-//         hour: "2-digit",
-//         minute: "2-digit",
-//       }),
-//     };
-//     setChat((prev) => [...prev, userFriendlyMsg]);
-
-//     // Send internal command (will be skipped from bot reply)
-//     await handleSend(`SELECT_PLAN:${planId}`);
-
+//     // Send selection to backend
+//     const planText = `I would like to select the plan: ${
+//       plan.planName || plan.name
+//     }`;
+//     await handleSend(planText);
 //     // Proceed to payment
 //     setShowPayment(true);
-//     scrollViewRef.current?.scrollToEnd({ animated: true });
+//     // Scroll to bottom
+//     if (scrollViewRef.current) {
+//       scrollViewRef.current.scrollToEnd({ animated: true });
+//     }
 //   };
 //   const handleTokenReceived = async (token) => {
 //     setPaymentToken(token);
 //     setShowPayment(false);
-
 //     if (!custNo) {
-//       Alert.alert("Error", "Customer number not available");
-//       setShowPayment(true);
+//       Alert.alert("Error", "Customer info missing");
 //       return;
 //     }
-
 //     try {
-//       const payload = { custNo, paymentTokenId: token };
-//       const response = await fetch(`${API_BASE_URL}api/v1/payments/methods`, {
+//       // Step 1: Save payment method
+//       const payRes = await fetch(`${API_BASE_URL}api/v1/payments/methods`, {
 //         method: "POST",
 //         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify(payload),
+//         body: JSON.stringify({ custNo, paymentTokenId: token }),
 //       });
-
-//       const data = await response.json();
-
-//       if (!response.ok) {
-//         throw new Error(data.message || "Failed to add payment method");
-//       }
-
-//       const paymentId = data.data?.paymentId;
-//       setPaymentToken(paymentId);
-//       await handleSend("Payment method successfully added!");
-//       setShowPaymentProcessCard(true);
-//     } catch (error) {
-//       console.error("Token submission error:", error);
-//       Alert.alert("Error", error.message || "Failed to process token");
-//       setShowPayment(true);
+//       const payData = await payRes.json();
+//       if (!payRes.ok) throw new Error(payData.message || "Payment failed");
+//       // Step 2: DIRECTLY ACTIVATE ORDER (No PaymentProcessCard)
+//       await handleActivateOrder();
+//     } catch (err) {
+//       console.error("Payment/Activation error:", err);
+//       Alert.alert("Failed", err.message || "Payment failed. Try again.");
+//       setShowPayment(true); // Let user retry
 //     }
 //   };
 //   const clearSession = async () => {
@@ -463,109 +540,131 @@
 //     }
 //   };
 //   const handleActivateOrder = async () => {
-//     try {
-//       // Construct full address from submitted details
-//       const fullAddress = `${submittedSignupDetails?.address || ""}, ${
-//         submittedSignupDetails?.suburb || ""
-//       } ${submittedSignupDetails?.state || ""} ${
-//         submittedSignupDetails?.postcode || ""
-//       }, Australia`;
-
-//       const payload = {
+//     if (orderActivated) return;
+//     setOrderActivated(true);
+//     const fullAddress = `${submittedSignupDetails?.address || ""}, ${
+//       submittedSignupDetails?.suburb || ""
+//     } ${submittedSignupDetails?.state || ""} ${
+//       submittedSignupDetails?.postcode || ""
+//     }, Australia`.trim();
+//     let payload;
+//     let endpoint;
+//     if (isPorting) {
+//       endpoint = `${API_BASE_URL}api/v1/orders/activate/port`;
+//       const cust = {
+//         custNo: custNo || "",
+//         suburb: submittedSignupDetails?.suburb || "",
+//         postcode: submittedSignupDetails?.postcode || "",
+//         address: fullAddress,
+//         email: submittedSignupDetails?.email || "",
+//       };
+//       if (numType === "prepaid") {
+//         cust.dob = submittedSignupDetails?.dob || "";
+//       } else if (numType === "postpaid") {
+//         cust.arn = arn || "";
+//       }
+//       payload = {
+//         number: selectedSim || "",
+//         numType: numType,
+//         cust,
+//         planNo: String(planNo || ""),
+//       };
+//     } else {
+//       endpoint = `${API_BASE_URL}api/v1/orders/activate`;
+//       payload = {
 //         number: selectedSim || "",
 //         cust: {
 //           custNo: custNo || "",
-//           address: fullAddress.trim(),
+//           address: fullAddress,
 //           suburb: submittedSignupDetails?.suburb || "",
 //           postcode: submittedSignupDetails?.postcode || "",
 //           email: submittedSignupDetails?.email || "",
 //         },
 //         planNo: String(planNo || ""),
-//         simNo: "",
 //       };
-
-//       console.log("Activation payload:", payload);
-
-//       const response = await fetch(`${API_BASE_URL}api/v1/orders/activate`, {
+//     }
+//     try {
+//       const res = await fetch(endpoint, {
 //         method: "POST",
 //         headers: { "Content-Type": "application/json" },
 //         body: JSON.stringify(payload),
 //       });
-
-//       const result = await response.json();
-//       console.log("Activation result:", result);
-
-//       // Clear any existing success/error messages
+//       const result = await res.json();
+//       // Clear old success/error messages
 //       setChat((prev) =>
 //         prev.filter(
-//           (msg) =>
-//             !msg.text.includes("Great News") &&
-//             !msg.text.includes("Activation failed") &&
-//             !msg.text.includes("Order activation failed")
+//           (m) =>
+//             !m.text.includes("Great News") &&
+//             !m.text.includes("Activation failed") &&
+//             !m.text.includes("Your eSIM has been created")
 //         )
 //       );
-
-//       if (response.ok && result.data?.orderId) {
-//         const successMessage = {
-//           id: Date.now() + Math.floor(Math.random() * 1000),
-//           type: "bot",
-//           text: `Great News...Your eSIM has been created with Flying Kiwi.
-
-// Here is your Order ID: ${result.data.orderId}. Take a copy of it now,
-// but you will also be emailed it.
-
-//  Install the eSIM on your phone.
-// You will receive a QR Code in the next 5–10 minutes via email from:
-// donotreply@mobileservicesolutions.com.au
-
-// 📌 Make sure to check your junk mail if it hasn't arrived in the next 5–10 minutes.`,
-//           time: new Date().toLocaleTimeString([], {
-//             hour: "2-digit",
-//             minute: "2-digit",
-//           }),
-//         };
-//         setChat((prev) => [...prev, successMessage]);
+//       let successText;
+//       if (res.ok && result.data?.orderId) {
+//         if (isPorting) {
+//           successText = `Great News...Your number has been ported to Flying Kiwi!\n\nOrder ID: ${result.data.orderId}\n\nYou will receive a confirmation email soon.`;
+//         } else {
+//           successText = `Great News...Your eSIM has been created with Flying Kiwi!\n\nHere is your Order ID: ${result.data.orderId}. Take a copy of it now, but you will also be emailed it.\n\nInstall the eSIM on your phone.\nYou will receive a QR Code in the next 5–10 minutes via email from:\ndonotreply@mobileservicesolutions.com.au\n\nMake sure to check your junk mail if it hasn't arrived.`;
+//         }
+//         setChat((prev) => [
+//           ...prev,
+//           {
+//             id: Date.now(),
+//             type: "bot",
+//             text: successText,
+//             time: new Date().toLocaleTimeString([], {
+//               hour: "2-digit",
+//               minute: "2-digit",
+//             }),
+//           },
+//         ]);
 //       } else {
-//         const errorMessage = {
-//           id: Date.now() + Math.floor(Math.random() * 1000),
-//           type: "bot",
-//           text: `Activation failed: ${result.message || "Unknown error"}`,
-//           time: new Date().toLocaleTimeString([], {
-//             hour: "2-digit",
-//             minute: "2-digit",
-//           }),
-//         };
-//         setChat((prev) => [...prev, errorMessage]);
+//         setChat((prev) => [
+//           ...prev,
+//           {
+//             id: Date.now(),
+//             type: "bot",
+//             text: `Activation failed: ${result.message || "Please try again"}`,
+//             time: new Date().toLocaleTimeString([], {
+//               hour: "2-digit",
+//               minute: "2-digit",
+//             }),
+//           },
+//         ]);
 //       }
 //     } catch (err) {
-//       console.error("Activation failed", err);
-//       const errorMessage = {
-//         id: Date.now() + Math.floor(Math.random() * 1000),
-//         type: "bot",
-//         text: "Order activation failed. Please try again.",
-//         time: new Date().toLocaleTimeString([], {
-//           hour: "2-digit",
-//           minute: "2-digit",
-//         }),
-//       };
-//       setChat((prev) => [...prev, errorMessage]);
+//       setChat((prev) => [
+//         ...prev,
+//         {
+//           id: Date.now(),
+//           type: "bot",
+//           text: "Activation failed. Please contact support.",
+//           time: new Date().toLocaleTimeString([], {
+//             hour: "2-digit",
+//             minute: "2-digit",
+//           }),
+//         },
+//       ]);
 //     }
 //   };
-//   // Date picker handlers
+//   const formatToLocalDate = (date) => {
+//     const year = date.getFullYear();
+//     const month = String(date.getMonth() + 1).padStart(2, "0");
+//     const day = String(date.getDate()).padStart(2, "0");
+//     return `${year}-${month}-${day}`;
+//   };
 //   const onDateChange = (event, selectedDate) => {
-//     setShowDatePicker(false);
 //     if (selectedDate) {
-//       setDobDateObj(selectedDate);
-//       const formattedDate = selectedDate.toISOString().split("T")[0];
-//       handleFormChange("dob", formattedDate);
+//       setTempDobDate(selectedDate);
 //     }
 //   };
-//   const handleIosDone = () => {
+//   const handleDone = () => {
 //     setShowDatePicker(false);
-//     const formattedDate = dobDateObj.toISOString().split("T")[0];
+//     setDobDateObj(tempDobDate);
+//     const formattedDate = formatToLocalDate(tempDobDate);
 //     handleFormChange("dob", formattedDate);
 //   };
-//   const handleIosCancel = () => {
+//   const handleCancel = () => {
 //     setShowDatePicker(false);
 //   };
 //   // Load session on mount
@@ -595,20 +694,6 @@
 //           Flying Kiwi Fitness
 //         </Text>
 //       </View>
-//       {/* <KeyboardAvoidingView
-//         style={tw`flex-1`}
-//         behavior={Platform.OS === "ios" ? "padding" : "height"}
-//         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 140}
-//       >
-//         <ScrollView
-//           ref={scrollViewRef}
-//           contentContainerStyle={tw`px-4 pb-6`}
-//           showsVerticalScrollIndicator={false}
-//           keyboardShouldPersistTaps="handled"
-//           onContentSizeChange={() =>
-//             scrollViewRef.current?.scrollToEnd({ animated: true })
-//           }
-//         > */}
 //       <KeyboardAvoidingView
 //         style={tw`flex-1`}
 //         behavior={"padding"}
@@ -827,7 +912,10 @@
 //                       paddingVertical: 12,
 //                     },
 //                   ]}
-//                   onPress={() => setShowDatePicker(true)}
+//                   onPress={() => {
+//                     setTempDobDate(dobDateObj);
+//                     setShowDatePicker(true);
+//                   }}
 //                 >
 //                   <Text style={{ color: formData.dob ? "#000" : "#999" }}>
 //                     {formData.dob || "Date of Birth (YYYY-MM-DD) *"}
@@ -938,6 +1026,138 @@
 //             </ScrollView>
 //           </View>
 //         )}
+//         {/* Number Type Selection */}
+//         {showNumberTypeSelection && (
+//           <View style={styles.formContainer}>
+//             <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+//               <Text style={tw`text-black text-lg font-bold mb-3`}>
+//                 Select Number Type
+//               </Text>
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton, tw`mb-3`]}
+//                 onPress={handleNewNumber}
+//               >
+//                 <Text style={styles.buttonText}>New Number</Text>
+//               </TouchableOpacity>
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton]}
+//                 onPress={handleExistingNumberSelect}
+//               >
+//                 <Text style={styles.buttonText}>Existing Number</Text>
+//               </TouchableOpacity>
+//             </ScrollView>
+//           </View>
+//         )}
+//         {/* Existing Number Input */}
+//         {showExistingNumberInput && (
+//           <View style={styles.formContainer}>
+//             <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+//               <Text style={tw`text-black text-lg font-bold mb-3`}>
+//                 Enter Your Existing Number
+//               </Text>
+//               <TextInput
+//                 style={styles.input}
+//                 placeholder="04XXXXXXXX"
+//                 placeholderTextColor="#999"
+//                 keyboardType="phone-pad"
+//                 maxLength={10}
+//                 value={existingNumber}
+//                 onChangeText={(text) => setExistingNumber(text.trim())}
+//               />
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton, tw`mt-3`]}
+//                 onPress={handleExistingNumberConfirm}
+//               >
+//                 <Text style={styles.buttonText}>Confirm</Text>
+//               </TouchableOpacity>
+//             </ScrollView>
+//           </View>
+//         )}
+//         {/* Num Type Selection (Prepaid/Postpaid) */}
+//         {showNumTypeSelection && (
+//           <View style={styles.formContainer}>
+//             <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+//               <Text style={tw`text-black text-lg font-bold mb-3`}>
+//                 Select Prepaid or Postpaid
+//               </Text>
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton, tw`mb-3`]}
+//                 onPress={handlePrepaid}
+//               >
+//                 <Text style={styles.buttonText}>Prepaid</Text>
+//               </TouchableOpacity>
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton]}
+//                 onPress={handlePostpaid}
+//               >
+//                 <Text style={styles.buttonText}>Postpaid</Text>
+//               </TouchableOpacity>
+//             </ScrollView>
+//           </View>
+//         )}
+//         {/* ARN Input */}
+//         {showArnInput && (
+//           <View style={styles.formContainer}>
+//             <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+//               <Text style={tw`text-black text-lg font-bold mb-3`}>
+//                 Enter ARN
+//               </Text>
+//               <TextInput
+//                 style={styles.input}
+//                 placeholder="ARN"
+//                 placeholderTextColor="#999"
+//                 value={arn}
+//                 onChangeText={(text) => setArn(text.trim())}
+//               />
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton, tw`mt-3`]}
+//                 onPress={handleArnInputConfirm}
+//               >
+//                 <Text style={styles.buttonText}>Confirm</Text>
+//               </TouchableOpacity>
+//             </ScrollView>
+//           </View>
+//         )}
+//         {/* ARN Confirm */}
+//         {showArnConfirm && (
+//           <View style={styles.formContainer}>
+//             <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+//               <Text style={tw`text-black text-lg font-bold mb-3`}>
+//                 Are you sure? ARN: {arn}
+//               </Text>
+//               <TouchableOpacity
+//                 style={[styles.button, styles.submitButton, tw`mb-3`]}
+//                 onPress={async () => {
+//                   await AsyncStorage.setItem("arn", arn);
+//                   setShowArnConfirm(false);
+//                   setLoading(true);
+//                   await handleSend(
+//                     `numType: postpaid, arn: ${arn}`,
+//                     false,
+//                     true,
+//                     true
+//                   );
+//                   setLoading(false);
+//                   addBotMessage(
+//                     `Great! We'll port your existing number ${existingNumber}. Now please choose a plan.`
+//                   );
+//                   await fetchPlansAndShow();
+//                 }}
+//               >
+//                 <Text style={styles.buttonText}>Yes</Text>
+//               </TouchableOpacity>
+//               <TouchableOpacity
+//                 style={[styles.button, styles.cancelButton]}
+//                 onPress={() => {
+//                   setShowArnConfirm(false);
+//                   setShowArnInput(true);
+//                 }}
+//               >
+//                 <Text style={styles.buttonText}>No</Text>
+//               </TouchableOpacity>
+//             </ScrollView>
+//           </View>
+//         )}
 //         {/* Payment Flow Components */}
 //         {showPayment && selectedPlan && (
 //           <View style={styles.formContainer}>
@@ -950,104 +1170,72 @@
 //             />
 //           </View>
 //         )}
-//         {showPaymentProcessCard && selectedPlan && submittedSignupDetails && (
-//           <View style={styles.formContainer}>
-//             <PaymentProcessCard
-//               custNo={custNo}
-//               amount={selectedPlan.price}
-//               email={submittedSignupDetails.email}
-//               token={paymentToken} // This will now contain the paymentId from the API response
-//               plan={selectedPlan}
-//               onProcessed={async (result) => {
-//                 handleSend(
-//                   result?.message ||
-//                     (result?.success
-//                       ? "Payment processing completed!"
-//                       : "Payment failed")
-//                 );
-//                 if (result?.success) {
-//                   await handleActivateOrder();
-//                 }
-//                 setShowPaymentProcessCard(false);
-//               }}
-//               onClose={() => {
-//                 setShowPaymentProcessCard(false);
-//                 handleSend("Payment processing completed!");
-//                 handleActivateOrder();
-//               }}
-//             />
-//           </View>
-//         )}
-//         {/* Message Input Area */}
-//         {!showSignupForm && !showPayment && !showPaymentProcessCard && (
-//           <View
-//             style={[
-//               tw`flex-row items-center px-4 py-3 mb-12`,
-//               { backgroundColor: "rgba(255,255,255,0.05)" },
-//             ]}
-//           >
-//             <TextInput
-//               style={tw`flex-1 text-black px-4 py-2 rounded-full bg-white`}
-//               placeholder="Message..."
-//               placeholderTextColor="#000000"
-//               value={message}
-//               onChangeText={setMessage}
-//               onSubmitEditing={sendMessage}
-//             />
-//             <LinearGradient
-//               colors={theme.AIgradients.linear}
-//               start={{ x: 0, y: 0 }}
-//               end={{ x: 1, y: 1 }}
-//               style={tw`ml-2 w-10 h-10 rounded-full items-center justify-center`}
+//         {!showSignupForm &&
+//           !showPayment &&
+//           !showNumberTypeSelection &&
+//           !showExistingNumberInput &&
+//           !showNumTypeSelection &&
+//           !showArnInput &&
+//           !showArnConfirm && (
+//             <View
+//               style={[
+//                 tw`flex-row items-center px-4 py-3 mb-12`,
+//                 { backgroundColor: "rgba(255,255,255,0.05)" },
+//               ]}
 //             >
-//               <TouchableOpacity onPress={sendMessage} disabled={loading}>
-//                 <Ionicons name="arrow-up" size={20} color="white" />
-//               </TouchableOpacity>
-//             </LinearGradient>
-//           </View>
-//         )}
+//               <TextInput
+//                 style={tw`flex-1 text-black px-4 py-2 rounded-full bg-white`}
+//                 placeholder="Message..."
+//                 placeholderTextColor="#000000"
+//                 value={message}
+//                 onChangeText={setMessage}
+//                 onSubmitEditing={sendMessage}
+//               />
+//               <LinearGradient
+//                 colors={theme.AIgradients.linear}
+//                 start={{ x: 0, y: 0 }}
+//                 end={{ x: 1, y: 1 }}
+//                 style={tw`ml-2 w-10 h-10 rounded-full items-center justify-center`}
+//               >
+//                 <TouchableOpacity onPress={sendMessage} disabled={loading}>
+//                   <Ionicons name="arrow-up" size={20} color="white" />
+//                 </TouchableOpacity>
+//               </LinearGradient>
+//             </View>
+//           )}
 //       </KeyboardAvoidingView>
 //       {/* Date Picker */}
-//       {showDatePicker &&
-//         (Platform.OS === "android" ? (
-//           <DateTimePicker
-//             value={dobDateObj}
-//             mode="date"
-//             display="default"
-//             maximumDate={new Date()}
-//             onChange={onDateChange}
-//           />
-//         ) : (
-//           <Modal transparent animationType="slide">
-//             <View style={tw`flex-1 justify-end bg-black/50`}>
-//               <View style={tw`bg-white rounded-t-2xl p-4`}>
-//                 <View style={tw`flex-row justify-between items-center mb-4`}>
-//                   <TouchableOpacity onPress={handleIosCancel} style={tw`p-2`}>
-//                     <Text style={tw`text-red-500 font-semibold`}>Cancel</Text>
-//                   </TouchableOpacity>
-//                   <Text
-//                     style={tw`text-center flex-1 font-semibold text-gray-700`}
-//                   >
-//                     Select Date of Birth
-//                   </Text>
-//                   <TouchableOpacity onPress={handleIosDone} style={tw`p-2`}>
-//                     <Text style={tw`text-blue-500 font-semibold`}>Done</Text>
-//                   </TouchableOpacity>
-//                 </View>
-//                 <View style={{ height: 216 }}>
-//                   <DateTimePicker
-//                     value={dobDateObj}
-//                     mode="date"
-//                     display="spinner"
-//                     onChange={onDateChange}
-//                     maximumDate={new Date()}
-//                     themeVariant="light"
-//                   />
-//                 </View>
+//       {showDatePicker && (
+//         <Modal transparent animationType="slide">
+//           <View style={tw`flex-1 justify-end bg-black/50`}>
+//             <View style={tw`bg-white rounded-t-2xl p-4`}>
+//               <View style={tw`flex-row justify-between items-center mb-4`}>
+//                 <TouchableOpacity onPress={handleCancel} style={tw`p-2`}>
+//                   <Text style={tw`text-red-500 font-semibold`}>Cancel</Text>
+//                 </TouchableOpacity>
+//                 <Text
+//                   style={tw`text-center flex-1 font-semibold text-gray-700`}
+//                 >
+//                   Select Date of Birth
+//                 </Text>
+//                 <TouchableOpacity onPress={handleDone} style={tw`p-2`}>
+//                   <Text style={tw`text-blue-500 font-semibold`}>Done</Text>
+//                 </TouchableOpacity>
+//               </View>
+//               <View style={{ height: 216 }}>
+//                 <DateTimePicker
+//                   value={tempDobDate}
+//                   mode="date"
+//                   display="spinner"
+//                   onChange={onDateChange}
+//                   maximumDate={new Date()}
+//                   themeVariant="light"
+//                 />
 //               </View>
 //             </View>
-//           </Modal>
-//         ))}
+//           </View>
+//         </Modal>
+//       )}
 //     </LinearGradient>
 //   );
 // };
@@ -1124,7 +1312,6 @@ import { theme } from "../utils/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { PaymentProcessCard } from "../components/PaymentProcessCard";
 import { PaymentCard } from "../components/PaymentCard";
 import { API_BASE_URL } from "../utils/config";
 const ChatScreen = ({ navigation }) => {
@@ -1147,9 +1334,9 @@ const ChatScreen = ({ navigation }) => {
   const [numberOptions, setNumberOptions] = useState([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dobDateObj, setDobDateObj] = useState(new Date(1990, 0, 1));
+  const [tempDobDate, setTempDobDate] = useState(new Date(1990, 0, 1));
   const { width } = useWindowDimensions();
   const [showPayment, setShowPayment] = useState(false);
-  const [showPaymentProcessCard, setShowPaymentProcessCard] = useState(false);
   const [paymentToken, setPaymentToken] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -1171,9 +1358,30 @@ const ChatScreen = ({ navigation }) => {
     pin: "",
   });
   const [formErrors, setFormErrors] = useState({});
-  const [paymentProcessed, setPaymentProcessed] = useState(false);
   const [orderActivated, setOrderActivated] = useState(false);
+  const [showNumberTypeSelection, setShowNumberTypeSelection] = useState(false);
+  const [isPorting, setIsPorting] = useState(false);
+  const [existingNumber, setExistingNumber] = useState("");
+  const [showExistingNumberInput, setShowExistingNumberInput] = useState(false);
+  const [numType, setNumType] = useState(null);
+  const [showNumTypeSelection, setShowNumTypeSelection] = useState(false);
+  const [arn, setArn] = useState("");
+  const [showArnInput, setShowArnInput] = useState(false);
+  const [showArnConfirm, setShowArnConfirm] = useState(false);
+  const [hasSelectedNumber, setHasSelectedNumber] = useState(false);
   const scrollViewRef = useRef();
+  const addBotMessage = (text) => {
+    const botMsg = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      type: "bot",
+      text,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setChat((prev) => [...prev, botMsg]);
+  };
   // Form handling
   const handleFormChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -1256,17 +1464,28 @@ const ChatScreen = ({ navigation }) => {
     setFormErrors(errors);
     return isValid;
   };
+  const formatDob = (isoDate) => {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    return `${day}/${month}/${year}`;
+  };
   const handleFormSubmit = async () => {
     if (!validateForm()) return;
     // Construct full address as per desired payload
-    const fullAddress = `${formData.address}, ${formData.suburb} ${formData.state} ${formData.postcode}, Australia`;
-    const formatted = Object.entries({ ...formData, address: fullAddress })
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(", ");
+    const fullAddress = `${formData.address.trim()}, ${formData.suburb.trim()} ${formData.state.trim()} ${formData.postcode.trim()}, Australia`;
     try {
       // Store the form data with full address
-      const formDataCopy = { ...formData, address: fullAddress };
+      const formDataCopy = {
+        ...formData,
+        firstName: formData.firstName.trim(),
+        surname: formData.surname.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        dob: formatDob(formData.dob),
+        address: fullAddress,
+      };
       setSubmittedSignupDetails(formDataCopy);
+      await AsyncStorage.setItem("dob", formatDob(formData.dob));
       // Reset form data
       setFormData({
         firstName: "",
@@ -1280,201 +1499,99 @@ const ChatScreen = ({ navigation }) => {
         postcode: "",
         pin: "",
       });
+      setShowNumberButtons(false);
+      setHasSelectedNumber(false);
       // Close the signup form
       setShowSignupForm(false);
-      // Send the form data to chat
-      await handleSend(formatted);
+      // Show number type selection
+      setShowNumberTypeSelection(true);
     } catch (error) {
       console.error("Form submission error:", error);
       Alert.alert("Error", "Failed to submit form. Please try again.");
     }
   };
-  const handleSend = async (msgText, retryWithoutSession = false) => {
-    if (!msgText.trim() || loading) return;
-
-    // === 1. Skip internal commands (don't process via bot) ===
-    const internalCommands = [
-      "SELECT_PLAN:",
-      "Payment method successfully added!",
-      "Payment processing completed!",
-    ];
-    if (internalCommands.some((cmd) => msgText.startsWith(cmd))) {
-      // Don't show internal message in chat
+  const handleNewNumber = () => {
+    Alert.alert("Confirm New Number", "Are you sure you want new number?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes",
+        onPress: async () => {
+          setIsPorting(false);
+          setShowNumberTypeSelection(false);
+          const formatted = Object.entries(submittedSignupDetails)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(", ");
+          setLoading(true);
+          await handleSend(formatted, false, true, false);
+          setLoading(false);
+        },
+      },
+    ]);
+  };
+  const handleExistingNumberSelect = () => {
+    Alert.alert(
+      "Confirm Existing Number",
+      "Are you sure you want existing number?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes",
+          onPress: async () => {
+            setIsPorting(true);
+            setShowNumberTypeSelection(false);
+            setShowNumberButtons(false);
+            const formatted = Object.entries(submittedSignupDetails)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(", ");
+            setLoading(true);
+            await handleSend(formatted, false, true, true);
+            setLoading(false);
+            setShowExistingNumberInput(true);
+          },
+        },
+      ]
+    );
+  };
+  const handleExistingNumberConfirm = async () => {
+    if (!/^04\d{8}$/.test(existingNumber)) {
+      Alert.alert(
+        "Error",
+        "Please enter a valid Australian mobile number (04XXXXXXXX)."
+      );
       return;
     }
-
-    // === 2. Create user message ===
-    const userMsg = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      type: "user",
-      text: msgText.trim(),
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
-    setChat((prev) => [...prev, userMsg]);
-    setMessage("");
     setLoading(true);
-
-    try {
-      let payload = {
-        query: userMsg.text,
-        brand: "Flying-Kiwi",
-      };
-
-      // === 3. Handle special case: Plan selection via planNo ===
-      if (msgText.startsWith("SELECT_PLAN:")) {
-        const planId = msgText.replace("SELECT_PLAN:", "").trim();
-        payload = {
-          ...payload,
-          planNo: planId,
-          query: "select plan", // Optional: use a neutral query
-        };
-      }
-
-      if (!retryWithoutSession && sessionId) {
-        payload.session_id = sessionId;
-      }
-
-      const token = await AsyncStorage.getItem("access_token");
-      const headers = {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`${API_BASE_URL}chat/query`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(
-          `HTTP ${response.status}: ${errorBody || response.statusText}`
-        );
-      }
-
-      const data = await response.json();
-
-      // === 4. Update session ===
-      if (!sessionId && !retryWithoutSession && data.session_id) {
-        setSessionId(data.session_id);
-        try {
-          await AsyncStorage.setItem("chat_session_id", data.session_id);
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      if (data?.custNo) {
-        setCustNo(data.custNo);
-      }
-
-      // === 5. Get raw bot response ===
-      const originalBotText =
-        data?.message || data?.response || "Sorry, I couldn’t understand that.";
-      let displayBotText = originalBotText;
-      const lowerOriginal = originalBotText.toLowerCase();
-
-      // === 6. UI Triggers (Signup, Numbers, etc.) ===
-      let triggerSignup = false;
-      let triggerNumbers = false;
-
-      if (
-        lowerOriginal.includes("please provide your first name") ||
-        isDetailsRequest(originalBotText)
-      ) {
-        displayBotText =
-          "Your information is required for signup. Please fill out the form below.";
-        triggerSignup = true;
-      }
-
-      const numbersMatch = originalBotText.match(/04\d{8}/g);
-      if (numbersMatch && numbersMatch.length === 5) {
-        const numbers = extractNumbers(originalBotText);
-        setNumberOptions(numbers);
-        setShowNumberButtons(true);
-        displayBotText = "Please select a number from these available numbers.";
-        triggerNumbers = true;
-      }
-
-      // === 7. Override: When user sends a phone number → show plans ===
-      if (userMsg.text.match(/^04\d{8}$/)) {
-        displayBotText = "Please select a plan from the available options.";
-      }
-
-      // === 8. FINAL: Skip bot reply for internal actions ===
-      const skipBotReply = [
-        "SELECT_PLAN:",
-        "Payment method successfully added!",
-        "Payment processing completed!",
-      ].some((cmd) => userMsg.text.includes(cmd));
-
-      if (!skipBotReply) {
-        const botMsg = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          type: "bot",
-          text: displayBotText,
-          time: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setChat((prev) => [...prev, botMsg]);
-      }
-
-      // === 9. Trigger UI ===
-      if (triggerSignup) {
-        setShowSignupForm(true);
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      let errorMsg = "Oops! Something went wrong. Please try again.";
-
-      if (error.message.includes("Failed to fetch")) {
-        errorMsg = "Network error. Please try again.";
-      } else if (error.payload?.includes("401")) {
-        errorMsg = "Session expired. Please log in again.";
-      }
-
-      const errorResponse = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        type: "bot",
-        text: errorMsg,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setChat((prev) => [...prev, errorResponse]);
-
-      if (error.message.includes("Invalid session") && !retryWithoutSession) {
-        await clearSession();
-        setTimeout(() => handleSend(msgText, true), 500);
-      }
-    } finally {
-      setLoading(false);
+    await handleSend(existingNumber, false, true, true);
+    setLoading(false);
+    setSelectedSim(existingNumber);
+    setShowExistingNumberInput(false);
+    setShowNumTypeSelection(true);
+  };
+  const handlePrepaid = async () => {
+    setNumType("prepaid");
+    setShowNumTypeSelection(false);
+    setLoading(true);
+    await handleSend(`numType: prepaid`, false, true, true);
+    setLoading(false);
+    addBotMessage(
+      `Thanks for signup and enter existing number ${existingNumber}. Now please choose a plan.`
+    );
+    await fetchPlansAndShow();
+  };
+  const handlePostpaid = () => {
+    setNumType("postpaid");
+    setShowNumTypeSelection(false);
+    setShowArnInput(true);
+  };
+  const handleArnInputConfirm = () => {
+    if (!arn.trim()) {
+      Alert.alert("Error", "Please enter a valid ARN.");
+      return;
     }
+    setShowArnInput(false);
+    setShowArnConfirm(true);
   };
-  const sendMessage = () => {
-    handleSend(message);
-  };
-  // Helper functions
-  const extractNumbers = (text) => {
-    const matches = text.match(/04\d{8}/g);
-    return matches || [];
-  };
-  const handleNumberSelect = async (number) => {
-    setSelectedSim(number);
-    setShowNumberButtons(false);
-    await handleSend(number);
-    // Fetch plans after number selection
+  const fetchPlansAndShow = async () => {
     try {
       const plansResponse = await fetch(`${API_BASE_URL}api/v1/plans`, {
         method: "GET",
@@ -1502,63 +1619,209 @@ const ChatScreen = ({ navigation }) => {
       setChat((prev) => [...prev, errorMsg]);
     }
   };
+  const handleSend = async (
+    msgText,
+    retryWithoutSession = false,
+    silent = false,
+    localIsPorting = isPorting
+  ) => {
+    if (!msgText.trim() || loading) return;
+    const query = msgText.trim();
+    let userMsg;
+    if (!silent) {
+      userMsg = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "user",
+        text: query,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setChat((prev) => [...prev, userMsg]);
+      setMessage("");
+      setLoading(true);
+    }
+    try {
+      let payload = {
+        query,
+        brand: "Flying-Kiwi",
+      };
+      if (!retryWithoutSession && sessionId) {
+        payload.session_id = sessionId;
+      }
+      const token = await AsyncStorage.getItem("access_token");
+      const headers = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE_URL}chat/query`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+          `HTTP ${response.status}: ${errorBody || response.statusText}`
+        );
+      }
+      const data = await response.json();
+      if (!sessionId && !retryWithoutSession && data.session_id) {
+        setSessionId(data.session_id);
+        try {
+          await AsyncStorage.setItem("chat_session_id", data.session_id);
+        } catch (e) {
+          // ignore storage errors
+        }
+      }
+      if (data?.custNo) {
+        setCustNo(data.custNo);
+      }
+      const originalBotText =
+        data?.message || data?.response || "Sorry, I couldn’t understand that.";
+      let displayBotText = originalBotText;
+      const lowerOriginal = originalBotText.toLowerCase();
+      // Check for signup trigger and override message
+      let triggerSignup = false;
+      if (
+        lowerOriginal.includes("please provide your first name") ||
+        isDetailsRequest(originalBotText)
+      ) {
+        displayBotText =
+          "Your information is required for signup. Please fill out the form below.";
+        triggerSignup = true;
+      }
+      // Check for numbers trigger and override message
+      const numbersMatch = originalBotText.match(/04\d{8}/g);
+      let triggerNumbers = false;
+      if (
+        numbersMatch &&
+        numbersMatch.length === 5 &&
+        !localIsPorting &&
+        !hasSelectedNumber
+      ) {
+        const numbers = extractNumbers(originalBotText);
+        setNumberOptions(numbersMatch);
+        setShowNumberButtons(true);
+        displayBotText =
+          "Thanks, now it’s time to choose a number from the selection below";
+        triggerNumbers = true;
+      }
+      // Check for plan trigger (when user sends a phone number)
+      if (query.match(/^04\d{8}$/)) {
+        displayBotText = "Please select a plan from the available options.";
+      }
+      const botMsg = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "bot",
+        text: displayBotText,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      if (!silent) {
+        setChat((prev) => [...prev, botMsg]);
+      } else if (triggerSignup || triggerNumbers) {
+        setChat((prev) => [...prev, botMsg]);
+      }
+      // Handle native UI triggers based on bot response
+      if (triggerSignup) {
+        setShowSignupForm(true);
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      let errorMsg = "Oops! Something went wrong. Please try again.";
+      if (error.message.includes("Failed to fetch")) {
+        errorMsg = "Network error. Please try again.";
+      } else if (error.message.includes("401")) {
+        errorMsg = "Session expired. Please log in again.";
+      }
+      const errorResponse = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        type: "bot",
+        text: errorMsg,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      if (!silent) {
+        setChat((prev) => [...prev, errorResponse]);
+      }
+      // Retry without session if invalid
+      if (error.message.includes("Invalid session") && !retryWithoutSession) {
+        await clearSession();
+        setTimeout(() => {
+          handleSend(msgText, true, silent, localIsPorting);
+        }, 500);
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+  const sendMessage = () => {
+    handleSend(message);
+  };
+  // Helper functions
+  const extractNumbers = (text) => {
+    const matches = text.match(/04\d{8}/g);
+    return matches || [];
+  };
+  const handleNumberSelect = async (number) => {
+    setSelectedSim(number);
+    setShowNumberButtons(false);
+    setHasSelectedNumber(true);
+    setLoading(true);
+    await handleSend(number, false, true, false);
+    setLoading(false);
+    // Fetch plans after number selection
+    await fetchPlansAndShow();
+  };
   const handlePlanSelect = async (plan) => {
-    const planId = String(plan.planNo || plan.id || plan.planId || "UNKNOWN");
     setSelectedPlan(plan);
-    setPlanNo(planId);
+    setPlanNo(String(plan.planNo || plan.id || "PLAN001"));
     setShowPlans(false);
-
-    // Show clean user message
-    const userFriendlyMsg = {
-      id: Date.now(),
-      type: "user",
-      text: `I choose the ${plan.planName || plan.name} plan ($${plan.price})`,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-    setChat((prev) => [...prev, userFriendlyMsg]);
-
-    // Send internal command (will be skipped from bot reply)
-    await handleSend(`SELECT_PLAN:${planId}`);
-
+    // Send selection to backend
+    const planText = `I would like to select the plan: ${
+      plan.planName || plan.name
+    }`;
+    await handleSend(planText, false, true);
     // Proceed to payment
     setShowPayment(true);
-    scrollViewRef.current?.scrollToEnd({ animated: true });
+    // Scroll to bottom
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
   };
   const handleTokenReceived = async (token) => {
     setPaymentToken(token);
     setShowPayment(false);
-
     if (!custNo) {
-      Alert.alert("Error", "Customer number not available");
-      setShowPayment(true);
+      Alert.alert("Error", "Customer info missing");
       return;
     }
-
     try {
-      const payload = { custNo, paymentTokenId: token };
-      const response = await fetch(`${API_BASE_URL}api/v1/payments/methods`, {
+      // Step 1: Save payment method
+      const payRes = await fetch(`${API_BASE_URL}api/v1/payments/methods`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ custNo, paymentTokenId: token }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to add payment method");
-      }
-
-      const paymentId = data.data?.paymentId;
-      setPaymentToken(paymentId);
-      await handleSend("Payment method successfully added!");
-      setShowPaymentProcessCard(true);
-    } catch (error) {
-      console.error("Token submission error:", error);
-      Alert.alert("Error", error.message || "Failed to process token");
-      setShowPayment(true);
+      const payData = await payRes.json();
+      if (!payRes.ok) throw new Error(payData.message || "Payment failed");
+      // Step 2: DIRECTLY ACTIVATE ORDER (No PaymentProcessCard)
+      await handleActivateOrder();
+    } catch (err) {
+      console.error("Payment/Activation error:", err);
+      Alert.alert("Failed", err.message || "Payment failed. Try again.");
+      setShowPayment(true); // Let user retry
     }
   };
   const clearSession = async () => {
@@ -1570,116 +1833,131 @@ const ChatScreen = ({ navigation }) => {
     }
   };
   const handleActivateOrder = async () => {
-    if (orderActivated) {
-      console.log(
-        "Order activation already attempted, skipping to prevent duplicates"
-      );
-      return;
-    }
+    if (orderActivated) return;
     setOrderActivated(true);
-    try {
-      // Construct full address from submitted details
-      const fullAddress = `${submittedSignupDetails?.address || ""}, ${
-        submittedSignupDetails?.suburb || ""
-      } ${submittedSignupDetails?.state || ""} ${
-        submittedSignupDetails?.postcode || ""
-      }, Australia`;
-
-      const payload = {
+    const fullAddress = `${submittedSignupDetails?.address || ""}, ${
+      submittedSignupDetails?.suburb || ""
+    } ${submittedSignupDetails?.state || ""} ${
+      submittedSignupDetails?.postcode || ""
+    }, Australia`.trim();
+    let payload;
+    let endpoint;
+    if (isPorting) {
+      endpoint = `${API_BASE_URL}api/v1/orders/activate/port`;
+      const cust = {
+        custNo: custNo || "",
+        suburb: submittedSignupDetails?.suburb || "",
+        postcode: submittedSignupDetails?.postcode || "",
+        address: fullAddress,
+        email: submittedSignupDetails?.email || "",
+      };
+      if (numType === "prepaid") {
+        cust.dob = submittedSignupDetails?.dob || "";
+      } else if (numType === "postpaid") {
+        cust.arn = arn || "";
+      }
+      payload = {
+        number: selectedSim || "",
+        numType: numType,
+        cust,
+        planNo: String(planNo || ""),
+      };
+    } else {
+      endpoint = `${API_BASE_URL}api/v1/orders/activate`;
+      payload = {
         number: selectedSim || "",
         cust: {
           custNo: custNo || "",
-          address: fullAddress.trim(),
+          address: fullAddress,
           suburb: submittedSignupDetails?.suburb || "",
           postcode: submittedSignupDetails?.postcode || "",
           email: submittedSignupDetails?.email || "",
         },
         planNo: String(planNo || ""),
-        simNo: "",
       };
-
-      console.log("Activation payload:", payload);
-
-      const response = await fetch(`${API_BASE_URL}api/v1/orders/activate`, {
+    }
+    try {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      const result = await response.json();
-      console.log("Activation result:", result);
-
-      // Clear any existing success/error messages
+      const result = await res.json();
+      // Clear old success/error messages
       setChat((prev) =>
         prev.filter(
-          (msg) =>
-            !msg.text.includes("Great News") &&
-            !msg.text.includes("Activation failed") &&
-            !msg.text.includes("Order activation failed")
+          (m) =>
+            !m.text.includes("Great News") &&
+            !m.text.includes("Activation failed") &&
+            !m.text.includes("Your eSIM has been created")
         )
       );
-
-      if (response.ok && result.data?.orderId) {
-        const successMessage = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          type: "bot",
-          text: `Great News...Your eSIM has been created with Flying Kiwi.
- 
-Here is your Order ID: ${result.data.orderId}. Take a copy of it now,
-but you will also be emailed it.
- 
- Install the eSIM on your phone.
-You will receive a QR Code in the next 5–10 minutes via email from:
-donotreply@mobileservicesolutions.com.au
- 
-📌 Make sure to check your junk mail if it hasn't arrived in the next 5–10 minutes.`,
-          time: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setChat((prev) => [...prev, successMessage]);
+      let successText;
+      if (res.ok && result.data?.orderId) {
+        if (isPorting) {
+          successText = `Great News...Your number has been ported to Flying Kiwi!\n\nOrder ID: ${result.data.orderId}\n\nYou will receive a confirmation email soon.`;
+        } else {
+          successText = `Great News...Your eSIM has been created with Flying Kiwi!\n\nHere is your Order ID: ${result.data.orderId}. Take a copy of it now, but you will also be emailed it.\n\nInstall the eSIM on your phone.\nYou will receive a QR Code in the next 5–10 minutes via email from:\ndonotreply@mobileservicesolutions.com.au\n\nMake sure to check your junk mail if it hasn't arrived.`;
+        }
+        setChat((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            type: "bot",
+            text: successText,
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
       } else {
-        const errorMessage = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          type: "bot",
-          text: `Activation failed: ${result.message || "Unknown error"}`,
-          time: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setChat((prev) => [...prev, errorMessage]);
+        setChat((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            type: "bot",
+            text: `Activation failed: ${result.message || "Please try again"}`,
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
       }
     } catch (err) {
-      console.error("Activation failed", err);
-      const errorMessage = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        type: "bot",
-        text: "Order activation failed. Please try again.",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setChat((prev) => [...prev, errorMessage]);
+      setChat((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: "bot",
+          text: "Activation failed. Please contact support.",
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
     }
   };
-  // Date picker handlers
+  const formatToLocalDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
   const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
     if (selectedDate) {
-      setDobDateObj(selectedDate);
-      const formattedDate = selectedDate.toISOString().split("T")[0];
-      handleFormChange("dob", formattedDate);
+      setTempDobDate(selectedDate);
     }
   };
-  const handleIosDone = () => {
+  const handleDone = () => {
     setShowDatePicker(false);
-    const formattedDate = dobDateObj.toISOString().split("T")[0];
+    setDobDateObj(tempDobDate);
+    const formattedDate = formatToLocalDate(tempDobDate);
     handleFormChange("dob", formattedDate);
   };
-  const handleIosCancel = () => {
+  const handleCancel = () => {
     setShowDatePicker(false);
   };
   // Load session on mount
@@ -1709,20 +1987,6 @@ donotreply@mobileservicesolutions.com.au
           Flying Kiwi Fitness
         </Text>
       </View>
-      {/* <KeyboardAvoidingView
-        style={tw`flex-1`}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 140}
-      >
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={tw`px-4 pb-6`}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() =>
-            scrollViewRef.current?.scrollToEnd({ animated: true })
-          }
-        > */}
       <KeyboardAvoidingView
         style={tw`flex-1`}
         behavior={"padding"}
@@ -1941,7 +2205,10 @@ donotreply@mobileservicesolutions.com.au
                       paddingVertical: 12,
                     },
                   ]}
-                  onPress={() => setShowDatePicker(true)}
+                  onPress={() => {
+                    setTempDobDate(dobDateObj);
+                    setShowDatePicker(true);
+                  }}
                 >
                   <Text style={{ color: formData.dob ? "#000" : "#999" }}>
                     {formData.dob || "Date of Birth (YYYY-MM-DD) *"}
@@ -2052,6 +2319,138 @@ donotreply@mobileservicesolutions.com.au
             </ScrollView>
           </View>
         )}
+        {/* Number Type Selection */}
+        {showNumberTypeSelection && (
+          <View style={styles.formContainer}>
+            <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+              <Text style={tw`text-black text-lg font-bold mb-3`}>
+                Select Number Type
+              </Text>
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton, tw`mb-3`]}
+                onPress={handleNewNumber}
+              >
+                <Text style={styles.buttonText}>New Number</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton]}
+                onPress={handleExistingNumberSelect}
+              >
+                <Text style={styles.buttonText}>Existing Number</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+        {/* Existing Number Input */}
+        {showExistingNumberInput && (
+          <View style={styles.formContainer}>
+            <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+              <Text style={tw`text-black text-lg font-bold mb-3`}>
+                Enter Your Existing Number
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="04XXXXXXXX"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={existingNumber}
+                onChangeText={(text) => setExistingNumber(text.trim())}
+              />
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton, tw`mt-3`]}
+                onPress={handleExistingNumberConfirm}
+              >
+                <Text style={styles.buttonText}>Confirm</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+        {/* Num Type Selection (Prepaid/Postpaid) */}
+        {showNumTypeSelection && (
+          <View style={styles.formContainer}>
+            <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+              <Text style={tw`text-black text-lg font-bold mb-3`}>
+                Select Prepaid or Postpaid
+              </Text>
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton, tw`mb-3`]}
+                onPress={handlePrepaid}
+              >
+                <Text style={styles.buttonText}>Prepaid</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton]}
+                onPress={handlePostpaid}
+              >
+                <Text style={styles.buttonText}>Postpaid</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+        {/* ARN Input */}
+        {showArnInput && (
+          <View style={styles.formContainer}>
+            <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+              <Text style={tw`text-black text-lg font-bold mb-3`}>
+                Enter ARN
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="ARN"
+                placeholderTextColor="#999"
+                value={arn}
+                onChangeText={(text) => setArn(text.trim())}
+              />
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton, tw`mt-3`]}
+                onPress={handleArnInputConfirm}
+              >
+                <Text style={styles.buttonText}>Confirm</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+        {/* ARN Confirm */}
+        {showArnConfirm && (
+          <View style={styles.formContainer}>
+            <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled={true}>
+              <Text style={tw`text-black text-lg font-bold mb-3`}>
+                Are you sure? ARN: {arn}
+              </Text>
+              <TouchableOpacity
+                style={[styles.button, styles.submitButton, tw`mb-3`]}
+                onPress={async () => {
+                  await AsyncStorage.setItem("arn", arn);
+                  setShowArnConfirm(false);
+                  setLoading(true);
+                  await handleSend(
+                    `numType: postpaid, arn: ${arn}`,
+                    false,
+                    true,
+                    true
+                  );
+                  setLoading(false);
+                  addBotMessage(
+                    `Great! We'll port your existing number ${existingNumber}. Now please choose a plan.`
+                  );
+                  await fetchPlansAndShow();
+                }}
+              >
+                <Text style={styles.buttonText}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.cancelButton]}
+                onPress={() => {
+                  setShowArnConfirm(false);
+                  setShowArnInput(true);
+                }}
+              >
+                <Text style={styles.buttonText}>No</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
         {/* Payment Flow Components */}
         {showPayment && selectedPlan && (
           <View style={styles.formContainer}>
@@ -2064,110 +2463,72 @@ donotreply@mobileservicesolutions.com.au
             />
           </View>
         )}
-        {showPaymentProcessCard && selectedPlan && submittedSignupDetails && (
-          <View style={styles.formContainer}>
-            <PaymentProcessCard
-              custNo={custNo}
-              amount={selectedPlan.price}
-              email={submittedSignupDetails.email}
-              token={paymentToken} // This will now contain the paymentId from the API response
-              plan={selectedPlan}
-              onProcessed={async (result) => {
-                if (result?.success && !paymentProcessed) {
-                  setPaymentProcessed(true);
-                  handleSend(
-                    result?.message ||
-                      (result?.success
-                        ? "Payment processing completed!"
-                        : "Payment failed")
-                  );
-                  if (result?.success) {
-                    await handleActivateOrder();
-                  }
-                }
-                setShowPaymentProcessCard(false);
-              }}
-              onClose={() => {
-                if (!paymentProcessed) {
-                  setPaymentProcessed(true);
-                  handleSend("Payment processing completed!");
-                  handleActivateOrder();
-                }
-                setShowPaymentProcessCard(false);
-              }}
-            />
-          </View>
-        )}
-        {/* Message Input Area */}
-        {!showSignupForm && !showPayment && !showPaymentProcessCard && (
-          <View
-            style={[
-              tw`flex-row items-center px-4 py-3 mb-12`,
-              { backgroundColor: "rgba(255,255,255,0.05)" },
-            ]}
-          >
-            <TextInput
-              style={tw`flex-1 text-black px-4 py-2 rounded-full bg-white`}
-              placeholder="Message..."
-              placeholderTextColor="#000000"
-              value={message}
-              onChangeText={setMessage}
-              onSubmitEditing={sendMessage}
-            />
-            <LinearGradient
-              colors={theme.AIgradients.linear}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={tw`ml-2 w-10 h-10 rounded-full items-center justify-center`}
+        {!showSignupForm &&
+          !showPayment &&
+          !showNumberTypeSelection &&
+          !showExistingNumberInput &&
+          !showNumTypeSelection &&
+          !showArnInput &&
+          !showArnConfirm && (
+            <View
+              style={[
+                tw`flex-row items-center px-4 py-3 mb-12`,
+                { backgroundColor: "rgba(255,255,255,0.05)" },
+              ]}
             >
-              <TouchableOpacity onPress={sendMessage} disabled={loading}>
-                <Ionicons name="arrow-up" size={20} color="white" />
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        )}
+              <TextInput
+                style={tw`flex-1 text-black px-4 py-2 rounded-full bg-white`}
+                placeholder="Message..."
+                placeholderTextColor="#000000"
+                value={message}
+                onChangeText={setMessage}
+                onSubmitEditing={sendMessage}
+              />
+              <LinearGradient
+                colors={theme.AIgradients.linear}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={tw`ml-2 w-10 h-10 rounded-full items-center justify-center`}
+              >
+                <TouchableOpacity onPress={sendMessage} disabled={loading}>
+                  <Ionicons name="arrow-up" size={20} color="white" />
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          )}
       </KeyboardAvoidingView>
       {/* Date Picker */}
-      {showDatePicker &&
-        (Platform.OS === "android" ? (
-          <DateTimePicker
-            value={dobDateObj}
-            mode="date"
-            display="default"
-            maximumDate={new Date()}
-            onChange={onDateChange}
-          />
-        ) : (
-          <Modal transparent animationType="slide">
-            <View style={tw`flex-1 justify-end bg-black/50`}>
-              <View style={tw`bg-white rounded-t-2xl p-4`}>
-                <View style={tw`flex-row justify-between items-center mb-4`}>
-                  <TouchableOpacity onPress={handleIosCancel} style={tw`p-2`}>
-                    <Text style={tw`text-red-500 font-semibold`}>Cancel</Text>
-                  </TouchableOpacity>
-                  <Text
-                    style={tw`text-center flex-1 font-semibold text-gray-700`}
-                  >
-                    Select Date of Birth
-                  </Text>
-                  <TouchableOpacity onPress={handleIosDone} style={tw`p-2`}>
-                    <Text style={tw`text-blue-500 font-semibold`}>Done</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={{ height: 216 }}>
-                  <DateTimePicker
-                    value={dobDateObj}
-                    mode="date"
-                    display="spinner"
-                    onChange={onDateChange}
-                    maximumDate={new Date()}
-                    themeVariant="light"
-                  />
-                </View>
+      {showDatePicker && (
+        <Modal transparent animationType="slide">
+          <View style={tw`flex-1 justify-end bg-black/50`}>
+            <View style={tw`bg-white rounded-t-2xl p-4`}>
+              <View style={tw`flex-row justify-between items-center mb-4`}>
+                <TouchableOpacity onPress={handleCancel} style={tw`p-2`}>
+                  <Text style={tw`text-red-500 font-semibold`}>Cancel</Text>
+                </TouchableOpacity>
+                <Text
+                  style={tw`text-center flex-1 font-semibold text-gray-700`}
+                >
+                  Select Date of Birth
+                </Text>
+                <TouchableOpacity onPress={handleDone} style={tw`p-2`}>
+                  <Text style={tw`text-blue-500 font-semibold`}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={{ height: 216 }}>
+                <DateTimePicker
+                  value={tempDobDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  maximumDate={new Date()}
+                  themeVariant="light"
+                />
               </View>
             </View>
-          </Modal>
-        ))}
+          </View>
+        </Modal>
+      )}
     </LinearGradient>
   );
 };
