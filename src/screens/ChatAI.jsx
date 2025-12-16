@@ -1314,6 +1314,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { PaymentCard } from "../components/PaymentCard";
 import { API_BASE_URL } from "../utils/config";
+import axios from "axios";
+
 const ChatScreen = ({ navigation }) => {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([
@@ -1375,6 +1377,46 @@ const ChatScreen = ({ navigation }) => {
   const [otpTransactionId, setOtpTransactionId] = useState(""); // to track OTP
   const [otpVerified, setOtpVerified] = useState(false);
 
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("access_token");
+        if (!token) {
+          setError("No authentication token found");
+          setLoading(false);
+          return;
+        }
+        const response = await axios.get(`${API_BASE_URL}user/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const { user, customer } = response.data;
+        console.log(response.data, "user and customer data")
+        // Merge relevant fields
+        setUser({
+          name: user.name || customer.firstName,
+          email: user.email,
+          accountId: customer.custNo,
+          serviceAddress: customer.address || user.street,
+          plan: "N/A",
+          speed: "N/A",
+          category_status_customer: customer.category_status_customer || "N/A",
+          expiry: "N/A",
+          dataUsed: 0,
+          dataLimit: 0,
+          bill: 0,
+          dueDate: "N/A",
+          disputeNotice: false,
+        });
+        setLoading(false);
+      } catch (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    };
+    fetchUserData();
+  }, []);
+  
   const scrollViewRef = useRef();
   const addBotMessage = (text) => {
     const botMsg = {
@@ -1570,12 +1612,12 @@ const ChatScreen = ({ navigation }) => {
       const res = await fetch(
         "https://bele.omnisuiteai.com/api/v1/auth/otp",
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            custNo,
-            destination: existingNumber,
-          }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          custNo,
+          destination: existingNumber,
+        }),
         }
       );
 
@@ -1648,6 +1690,44 @@ const ChatScreen = ({ navigation }) => {
       setChat((prev) => [...prev, errorMsg]);
     }
   };
+
+  const isDeleteAccountIntent = (text) => {
+    const lower = text.toLowerCase();
+    return (
+      lower.includes("delete my account") ||
+      lower.includes("close my account") ||
+      lower.includes("i want to delete account") ||
+      lower.includes("i want to close account")
+    );
+  };
+
+  const handleAccountDeletionFlow = async () => {
+    if (!user?.accountId) {
+      addBotMessage(
+        "You need to log in or sign up before you can delete your account."
+      );
+      return;
+    }
+
+    return new Promise((resolve) => {
+      Alert.alert(
+        "Confirm Account Deletion",
+        "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
+        [
+          { text: "No", style: "cancel", onPress: () => resolve(false) },
+          {
+            text: "Yes",
+            style: "destructive",
+            onPress: async () => {
+              await handleSend(`Yes I am sure, my custNo is ${user.accountId}`);
+              resolve(true);
+            },
+          },
+        ]
+      );
+    });
+  };
+
   const handleSend = async (
     msgText,
     retryWithoutSession = false,
@@ -1655,6 +1735,34 @@ const ChatScreen = ({ navigation }) => {
     localIsPorting = isPorting
   ) => {
     if (!msgText.trim() || loading) return;
+
+    if (isDeleteAccountIntent(msgText)) {
+      if (!user?.accountId) {
+        addBotMessage(
+          "You need to log in or sign up before you can delete your account."
+        );
+        return;
+      }
+
+      try {
+        const token = await AsyncStorage.getItem("access_token");
+        await fetch(`${API_BASE_URL}chat/query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ query: msgText, brand: "Prosperity-tech" }),
+        });
+
+        await handleAccountDeletionFlow();
+      } catch (err) {
+        console.error("Error during deletion flow:", err);
+        addBotMessage("Something went wrong. Please try again later.");
+      }
+      return;
+    }
+
     const query = msgText.trim();
     let userMsg;
     if (!silent) {
@@ -2556,7 +2664,10 @@ const ChatScreen = ({ navigation }) => {
 
             <TouchableOpacity
               onPress={handleOtpVerify}
-              style={[tw`px-4 py-1 mt-3 rounded`, { backgroundColor: "#2bb673" }]}
+              style={[
+                tw`px-4 py-1 mt-3 rounded`,
+                { backgroundColor: "#2bb673" },
+              ]}
             >
               <Text style={tw`text-white text-xs sm:text-sm text-center`}>
                 Verify OTP
