@@ -21,6 +21,8 @@
 // import DateTimePicker from "@react-native-community/datetimepicker";
 // import { PaymentCard } from "../components/PaymentCard";
 // import { API_BASE_URL } from "../utils/config";
+// import axios from "axios";
+
 // const ChatScreen = ({ navigation }) => {
 //   const [message, setMessage] = useState("");
 //   const [chat, setChat] = useState([
@@ -76,6 +78,52 @@
 //   const [showArnInput, setShowArnInput] = useState(false);
 //   const [showArnConfirm, setShowArnConfirm] = useState(false);
 //   const [hasSelectedNumber, setHasSelectedNumber] = useState(false);
+
+//   const [showOtpInput, setShowOtpInput] = useState(false);
+//   const [otpCode, setOtpCode] = useState("");
+//   const [otpTransactionId, setOtpTransactionId] = useState(""); // to track OTP
+//   const [otpVerified, setOtpVerified] = useState(false);
+
+//   const [user, setUser] = useState(null);
+//   useEffect(() => {
+//     const fetchUserData = async () => {
+//       try {
+//         const token = await AsyncStorage.getItem("access_token");
+//         if (!token) {
+//           setError("No authentication token found");
+//           setLoading(false);
+//           return;
+//         }
+//         const response = await axios.get(`${API_BASE_URL}user/me`, {
+//           headers: { Authorization: `Bearer ${token}` },
+//         });
+//         const { user, customer } = response.data;
+//         console.log(response.data, "user and customer data")
+//         // Merge relevant fields
+//         setUser({
+//           name: user.name || customer.firstName,
+//           email: user.email,
+//           accountId: customer.custNo,
+//           serviceAddress: customer.address || user.street,
+//           plan: "N/A",
+//           speed: "N/A",
+//           category_status_customer: customer.category_status_customer || "N/A",
+//           expiry: "N/A",
+//           dataUsed: 0,
+//           dataLimit: 0,
+//           bill: 0,
+//           dueDate: "N/A",
+//           disputeNotice: false,
+//         });
+//         setLoading(false);
+//       } catch (error) {
+//         setError(error.message);
+//         setLoading(false);
+//       }
+//     };
+//     fetchUserData();
+//   }, []);
+
 //   const scrollViewRef = useRef();
 //   const addBotMessage = (text) => {
 //     const botMsg = {
@@ -267,12 +315,35 @@
 //       );
 //       return;
 //     }
-//     setLoading(true);
-//     await handleSend(existingNumber, false, true, true);
-//     setLoading(false);
-//     setSelectedSim(existingNumber);
-//     setShowExistingNumberInput(false);
-//     setShowNumTypeSelection(true);
+//     try {
+//       const res = await fetch(
+//         "https://bele.omnisuiteai.com/api/v1/auth/otp",
+//         {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({
+//           custNo,
+//           destination: existingNumber,
+//         }),
+//         }
+//       );
+
+//       const data = await res.json();
+//       console.log(data, "DATA JSON");
+//       if (!res.ok) throw new Error(data.message || "OTP request failed");
+//       setLoading(true);
+//       setLoading(false);
+//       setOtpTransactionId(data.transactionId);
+//       setSelectedSim(existingNumber);
+//       setShowExistingNumberInput(false);
+//       setShowNumTypeSelection(true);
+//       addBotMessage(
+//         "OTP sent successfully. You will verify it before payment."
+//       );
+//     } catch (err) {
+//       console.error(err);
+//       addBotMessage("Failed to send OTP. Please try again.");
+//     }
 //   };
 //   const handlePrepaid = async () => {
 //     setNumType("prepaid");
@@ -326,6 +397,44 @@
 //       setChat((prev) => [...prev, errorMsg]);
 //     }
 //   };
+
+//   const isDeleteAccountIntent = (text) => {
+//     const lower = text.toLowerCase();
+//     return (
+//       lower.includes("delete my account") ||
+//       lower.includes("close my account") ||
+//       lower.includes("i want to delete account") ||
+//       lower.includes("i want to close account")
+//     );
+//   };
+
+//   const handleAccountDeletionFlow = async () => {
+//     if (!user?.accountId) {
+//       addBotMessage(
+//         "You need to log in or sign up before you can delete your account."
+//       );
+//       return;
+//     }
+
+//     return new Promise((resolve) => {
+//       Alert.alert(
+//         "Confirm Account Deletion",
+//         "Are you sure you want to delete your account? This action is permanent and cannot be undone.",
+//         [
+//           { text: "No", style: "cancel", onPress: () => resolve(false) },
+//           {
+//             text: "Yes",
+//             style: "destructive",
+//             onPress: async () => {
+//               await handleSend(`Yes I am sure, my custNo is ${user.accountId}`);
+//               resolve(true);
+//             },
+//           },
+//         ]
+//       );
+//     });
+//   };
+
 //   const handleSend = async (
 //     msgText,
 //     retryWithoutSession = false,
@@ -333,6 +442,34 @@
 //     localIsPorting = isPorting
 //   ) => {
 //     if (!msgText.trim() || loading) return;
+
+//     if (isDeleteAccountIntent(msgText)) {
+//       if (!user?.accountId) {
+//         addBotMessage(
+//           "You need to log in or sign up before you can delete your account."
+//         );
+//         return;
+//       }
+
+//       try {
+//         const token = await AsyncStorage.getItem("access_token");
+//         await fetch(`${API_BASE_URL}chat/query`, {
+//           method: "POST",
+//           headers: {
+//             "Content-Type": "application/json",
+//             Authorization: `Bearer ${token}`,
+//           },
+//           body: JSON.stringify({ query: msgText, brand: "Prosperity-tech" }),
+//         });
+
+//         await handleAccountDeletionFlow();
+//       } catch (err) {
+//         console.error("Error during deletion flow:", err);
+//         addBotMessage("Something went wrong. Please try again later.");
+//       }
+//       return;
+//     }
+
 //     const query = msgText.trim();
 //     let userMsg;
 //     if (!silent) {
@@ -499,9 +636,15 @@
 //     const planText = `I would like to select the plan: ${
 //       plan.planName || plan.name
 //     }`;
-//     await handleSend(planText);
-//     // Proceed to payment
-//     setShowPayment(true);
+//     await handleSend(planText, false, true);
+//     if (isPorting && !otpVerified) {
+//       setShowOtpInput(true);
+//       addBotMessage(
+//         "Please enter the OTP sent earlier to continue to payment."
+//       );
+//     } else {
+//       setShowPayment(true);
+//     }
 //     // Scroll to bottom
 //     if (scrollViewRef.current) {
 //       scrollViewRef.current.scrollToEnd({ animated: true });
@@ -539,6 +682,44 @@
 //       // ignore
 //     }
 //   };
+
+//   const handleOtpVerify = async () => {
+//     if (otpCode.length !== 6) {
+//       alert("Please enter a 6-digit OTP");
+//       return;
+//     }
+
+//     try {
+//       const res = await fetch(
+//         "https://bele.omnisuiteai.com/api/v1/auth/otp/verify",
+//         {
+//           method: "POST",
+//           headers: { "Content-Type": "application/json" },
+//           body: JSON.stringify({
+//             code: otpCode,
+//             transactionId: otpTransactionId,
+//           }),
+//         }
+//       );
+
+//       const data = await res.json();
+
+//       if (!res.ok) throw new Error(data.message || "OTP verification failed");
+
+//       setOtpVerified(true);
+//       if (selectedPlan) {
+//         setShowPayment(true);
+//       }
+//       setShowOtpInput(false);
+//       addBotMessage(
+//         "OTP verified successfully! You can now proceed to payment."
+//       );
+//     } catch (err) {
+//       console.error(err);
+//       addBotMessage("OTP verification failed. Please try again.");
+//     }
+//   };
+
 //   const handleActivateOrder = async () => {
 //     if (orderActivated) return;
 //     setOrderActivated(true);
@@ -1158,8 +1339,52 @@
 //             </ScrollView>
 //           </View>
 //         )}
+
+//         {showOtpInput && (
+//           <View
+//             style={[
+//               tw`flex flex-col items-center gap-3 p-4 rounded-lg border`,
+//               {
+//                 backgroundColor: "rgba(255,255,255,0.1)",
+//                 borderColor: "rgba(255,255,255,0.3)",
+//               },
+//             ]}
+//           >
+//             <Text style={tw`text-black text-sm sm:text-base text-center`}>
+//               Enter the OTP sent to your existing number:
+//             </Text>
+
+//             <TextInput
+//               maxLength={6}
+//               value={otpCode}
+//               onChangeText={(text) => setOtpCode(text.replace(/\D/g, ""))}
+//               style={[
+//                 tw`w-full p-2 rounded border text-center text-black text-sm sm:text-base`,
+//                 {
+//                   backgroundColor: "transparent",
+//                 },
+//               ]}
+//               placeholder="Enter 6-digit OTP"
+//               placeholderTextColor="black"
+//               keyboardType="numeric"
+//             />
+
+//             <TouchableOpacity
+//               onPress={handleOtpVerify}
+//               style={[
+//                 tw`px-4 py-1 mt-3 rounded`,
+//                 { backgroundColor: "#2bb673" },
+//               ]}
+//             >
+//               <Text style={tw`text-white text-xs sm:text-sm text-center`}>
+//                 Verify OTP
+//               </Text>
+//             </TouchableOpacity>
+//           </View>
+//         )}
+
 //         {/* Payment Flow Components */}
-//         {showPayment && selectedPlan && (
+//         {showPayment && selectedPlan && (numType ? otpVerified : true) && (
 //           <View style={styles.formContainer}>
 //             <PaymentCard
 //               onTokenReceived={handleTokenReceived}
@@ -1383,7 +1608,7 @@ const ChatScreen = ({ navigation }) => {
       try {
         const token = await AsyncStorage.getItem("access_token");
         if (!token) {
-          setError("No authentication token found");
+          // setError("No authentication token found");
           setLoading(false);
           return;
         }
@@ -1391,7 +1616,7 @@ const ChatScreen = ({ navigation }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const { user, customer } = response.data;
-        console.log(response.data, "user and customer data")
+        console.log(response.data, "user and customer data");
         // Merge relevant fields
         setUser({
           name: user.name || customer.firstName,
@@ -1410,13 +1635,13 @@ const ChatScreen = ({ navigation }) => {
         });
         setLoading(false);
       } catch (error) {
-        setError(error.message);
+        // setError(error.message);
         setLoading(false);
       }
     };
     fetchUserData();
   }, []);
-  
+
   const scrollViewRef = useRef();
   const addBotMessage = (text) => {
     const botMsg = {
@@ -1609,17 +1834,14 @@ const ChatScreen = ({ navigation }) => {
       return;
     }
     try {
-      const res = await fetch(
-        "https://bele.omnisuiteai.com/api/v1/auth/otp",
-        {
+      const res = await fetch("https://bele.omnisuiteai.com/api/v1/auth/otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           custNo,
           destination: existingNumber,
         }),
-        }
-      );
+      });
 
       const data = await res.json();
       console.log(data, "DATA JSON");
@@ -2128,6 +2350,16 @@ const ChatScreen = ({ navigation }) => {
     return `${year}-${month}-${day}`;
   };
   const onDateChange = (event, selectedDate) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      if (selectedDate) {
+        setDobDateObj(selectedDate);
+        const formattedDate = formatToLocalDate(selectedDate);
+        handleFormChange("dob", formattedDate);
+      }
+      return;
+    }
+    // iOS
     if (selectedDate) {
       setTempDobDate(selectedDate);
     }
@@ -2723,37 +2955,46 @@ const ChatScreen = ({ navigation }) => {
           )}
       </KeyboardAvoidingView>
       {/* Date Picker */}
-      {showDatePicker && (
-        <Modal transparent animationType="slide">
-          <View style={tw`flex-1 justify-end bg-black/50`}>
-            <View style={tw`bg-white rounded-t-2xl p-4`}>
-              <View style={tw`flex-row justify-between items-center mb-4`}>
-                <TouchableOpacity onPress={handleCancel} style={tw`p-2`}>
-                  <Text style={tw`text-red-500 font-semibold`}>Cancel</Text>
-                </TouchableOpacity>
-                <Text
-                  style={tw`text-center flex-1 font-semibold text-gray-700`}
-                >
-                  Select Date of Birth
-                </Text>
-                <TouchableOpacity onPress={handleDone} style={tw`p-2`}>
-                  <Text style={tw`text-blue-500 font-semibold`}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={{ height: 216 }}>
-                <DateTimePicker
-                  value={tempDobDate}
-                  mode="date"
-                  display="spinner"
-                  onChange={onDateChange}
-                  maximumDate={new Date()}
-                  themeVariant="light"
-                />
+      {showDatePicker &&
+        (Platform.OS === "android" ? (
+          <DateTimePicker
+            value={dobDateObj}
+            mode="date"
+            display="default"
+            maximumDate={new Date()}
+            onChange={onDateChange}
+          />
+        ) : (
+          <Modal transparent animationType="slide">
+            <View style={tw`flex-1 justify-end bg-black/50`}>
+              <View style={tw`bg-white rounded-t-2xl p-4`}>
+                <View style={tw`flex-row justify-between items-center mb-4`}>
+                  <TouchableOpacity onPress={handleCancel} style={tw`p-2`}>
+                    <Text style={tw`text-red-500 font-semibold`}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text
+                    style={tw`text-center flex-1 font-semibold text-gray-700`}
+                  >
+                    Select Date of Birth
+                  </Text>
+                  <TouchableOpacity onPress={handleDone} style={tw`p-2`}>
+                    <Text style={tw`text-blue-500 font-semibold`}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{ height: 216 }}>
+                  <DateTimePicker
+                    value={tempDobDate}
+                    mode="date"
+                    display="spinner"
+                    onChange={onDateChange}
+                    maximumDate={new Date()}
+                    themeVariant="light"
+                  />
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      )}
+          </Modal>
+        ))}
     </LinearGradient>
   );
 };
