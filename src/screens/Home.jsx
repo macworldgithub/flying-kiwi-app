@@ -23,9 +23,8 @@ import { Feather } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 export default function Home() {
   const navigation = useNavigation();
-  // 🔹 Modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showChangePinModal, setShowChangePinModal] = useState(false); // 👈 ADDED: Change PIN modal state
+  const [showChangePinModal, setShowChangePinModal] = useState(false);
   const [loading, setLoading] = useState(true);
   // const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,7 +52,6 @@ export default function Home() {
           headers: { Authorization: `Bearer ${token}` },
         });
         const { user, customer } = response.data;
-        // Merge relevant fields
         setUser({
           name: user.name || customer.firstName,
           email: user.email,
@@ -297,7 +295,7 @@ export default function Home() {
       ]
     );
   };
-  // 👈 ADDED: Helper function to display service name
+
   const getDisplayServiceName = (name) => {
     if (name === "SimplyBig Unlimited") {
       return "Just Mobile";
@@ -598,6 +596,12 @@ export default function Home() {
                 icon: "wifi",
                 screen: "CoverageCheck",
               },
+              {
+                title: "View Order",
+                subtitle: "Check Order Details",
+                icon: "document-text-outline",
+                screen: "Order",
+              },
             ].map((item, i) => (
               <TouchableOpacity
                 key={i}
@@ -613,6 +617,14 @@ export default function Home() {
                   )}
                   {item.icon === "wifi" && (
                     <Wifi size={22} color="blue" style={tw`mr-3`} />
+                  )}
+                  {item.icon === "document-text-outline" && (
+                    <Ionicons
+                      name="document-text-outline"
+                      size={22}
+                      color="blue"
+                      style={tw`mr-3`}
+                    />
                   )}
                   <View>
                     <Text style={tw`text-black font-medium`}>{item.title}</Text>

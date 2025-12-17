@@ -11,6 +11,9 @@ import PrivacyConsent from "./src/screens/PrivacyConsent.jsx";
 import ChatAI from "./src/screens/ChatAI.jsx";
 import SignUp from "./src/screens/Signup.js";
 import PlansScreen from "./src/screens/PlansScreen.jsx";
+import Order from "./src/screens/Order.jsx";
+import OrderDetail from "./src/screens/OrderDetail.jsx";
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -27,6 +30,8 @@ export default function App() {
         <Stack.Screen name="ChatAI" component={ChatAI} />
         <Stack.Screen name="Plans" component={PlansScreen} />
         <Stack.Screen name="SignUp" component={SignUp} />
+        <Stack.Screen name="Order" component={Order} />
+        <Stack.Screen name="OrderDetail" component={OrderDetail} />
       </Stack.Navigator>
     </NavigationContainer>
   );
