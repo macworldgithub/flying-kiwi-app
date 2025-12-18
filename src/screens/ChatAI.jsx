@@ -89,6 +89,47 @@ const ChatScreen = ({ navigation }) => {
   const [states, setStates] = useState([]);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [loadingStates, setLoadingStates] = useState(false);
+
+  useEffect(() => {
+    const loadSelectedPlan = async () => {
+      try {
+        const storedPlan = await AsyncStorage.getItem("selectedPlan");
+        if (storedPlan) {
+          const plan = JSON.parse(storedPlan);
+
+          setSelectedPlan(plan);
+          setPlanNo(String(plan.planNo));
+          setChat((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              type: "bot",
+              text: `You have already selected the plan:\n\n${plan.planName} — $${plan.price}`,
+              time: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
+          setShowSignupForm(true);
+        }
+      } catch (err) {
+        console.error("Failed to load selected plan:", err);
+      }
+    };
+
+    loadSelectedPlan();
+  }, []);
+
+  // useEffect(() => {
+  //   if (selectedPlan && !isPorting) {
+  //     setShowPayment(true);
+  //   }
+  // }, [selectedPlan]);
+
+  // if (isPorting && !otpVerified) {
+  //   setShowOtpInput(true);
+  // }
   useEffect(() => {
     fetchUserData();
   }, []);
@@ -244,12 +285,12 @@ const ChatScreen = ({ navigation }) => {
         dob: formatDob(formData.dob),
         address: fullAddress,
       };
-     
+
       setSubmittedSignupDetails(formDataCopy);
-      
+
       await AsyncStorage.setItem("signup_draft", JSON.stringify(formDataCopy));
       await AsyncStorage.setItem("dob", formatDob(formData.dob));
-    
+
       setFormData({
         firstName: "",
         surname: "",
@@ -262,14 +303,14 @@ const ChatScreen = ({ navigation }) => {
         postcode: "",
         pin: "",
       });
-     
+
       setShowSignupForm(false);
       setShowNumberButtons(false);
       setHasSelectedNumber(false);
-     
-      await clearSession(); 
-      setHasValidSession(false); 
-     
+
+      await clearSession();
+      setHasValidSession(false);
+
       setShowNumberTypeSelection(true);
     } catch (error) {
       console.error("Form submission error:", error);
@@ -294,13 +335,8 @@ const ChatScreen = ({ navigation }) => {
             .map(([key, value]) => `${key}: ${value}`)
             .join(", ");
           setLoading(true);
-         
-          await handleSend(
-            formatted,
-            true, 
-            false, 
-            false
-          );
+
+          await handleSend(formatted, true, false, false);
           setLoading(false);
         },
       },
@@ -375,10 +411,22 @@ const ChatScreen = ({ navigation }) => {
     setLoading(true);
     await handleSend(`numType: prepaid`, false, true, true);
     setLoading(false);
-    addBotMessage(
-      `Thanks for signup and enter existing number ${existingNumber}. Now please choose a plan.`
-    );
-    await fetchPlansAndShow();
+    if (!selectedPlan) {
+      addBotMessage(
+        `Thanks for signup and enter existing number ${existingNumber}. Now please choose a plan.`
+      );
+      await fetchPlansAndShow();
+    } else {
+      addBotMessage(
+        `We’ll continue with your selected plan: ${selectedPlan.planName}`
+      );
+
+      if (isPorting && !otpVerified) {
+        setShowOtpInput(true);
+      } else {
+        setShowPayment(true);
+      }
+    }
   };
   const handlePostpaid = () => {
     setNumType("postpaid");
@@ -392,6 +440,13 @@ const ChatScreen = ({ navigation }) => {
     }
     setShowArnInput(false);
     setShowArnConfirm(true);
+
+    if (isPorting && !otpVerified) {
+      setShowOtpInput(true);
+      addBotMessage(
+        "OTP has been sent to your existing number. Please enter it to continue."
+      );
+    }
   };
   const fetchPlansAndShow = async () => {
     try {
@@ -643,36 +698,40 @@ const ChatScreen = ({ navigation }) => {
     setShowNumberButtons(false);
     setHasSelectedNumber(true);
     setLoading(true);
+
     await handleSend(number, false, true, false);
     setLoading(false);
-    // Fetch plans after number selection
+
+    if (selectedPlan) {
+      addBotMessage(
+        `We’ll continue with your selected plan: ${selectedPlan.planName}`
+      );
+
+      if (!isPorting) {
+        setShowPayment(true);
+      }
+      return;
+    }
+
     try {
       const plansResponse = await fetch(`${API_BASE_URL}api/v1/plans`, {
         method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
+        headers: { Accept: "application/json" },
       });
+
       if (!plansResponse.ok) {
         throw new Error("Failed to fetch plans");
       }
+
       const plansData = await plansResponse.json();
       setPlans(plansData.data || []);
       setShowPlans(true);
     } catch (plansError) {
       console.error("Error fetching plans:", plansError);
-      const errorMsg = {
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        type: "bot",
-        text: "Sorry, couldn't load plans. Please try again.",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setChat((prev) => [...prev, errorMsg]);
+      addBotMessage("Sorry, couldn't load plans. Please try again.");
     }
   };
+
   const handlePlanSelect = async (plan) => {
     setSelectedPlan(plan);
     setPlanNo(String(plan.planNo || plan.id || "PLAN001"));
@@ -1041,7 +1100,7 @@ const ChatScreen = ({ navigation }) => {
             </View>
           )}
           {/* Plans Selection */}
-          {showPlans && plans.length > 0 && (
+          {showPlans && plans.length > 0 && !selectedPlan && (
             <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
               <LinearGradient
                 colors={theme.AIgradients.linear}
@@ -1379,10 +1438,19 @@ const ChatScreen = ({ navigation }) => {
                     true
                   );
                   setLoading(false);
-                  addBotMessage(
-                    `Great! We'll port your existing number ${existingNumber}. Now please choose a plan.`
-                  );
-                  await fetchPlansAndShow();
+
+                  const storedPlan = await AsyncStorage.getItem("selectedPlan");
+                  if (!storedPlan) {
+                    addBotMessage(
+                      `Great! We'll port your existing number ${existingNumber}. Now please choose a plan.`
+                    );
+                    await fetchPlansAndShow();
+                  } else {
+                    addBotMessage(
+                      "We’ll continue with your previously selected plan."
+                    );
+                    setShowPayment(true);
+                  }
                 }}
               >
                 <Text style={styles.buttonText}>Yes</Text>
@@ -1409,7 +1477,7 @@ const ChatScreen = ({ navigation }) => {
               },
             ]}
           >
-            <Text style={tw`text-white text-sm sm:text-base text-center`}>
+            <Text style={tw`text-black text-sm sm:text-base text-center`}>
               Enter the OTP sent to your existing number:
             </Text>
             <TextInput
@@ -1417,19 +1485,22 @@ const ChatScreen = ({ navigation }) => {
               value={otpCode}
               onChangeText={(text) => setOtpCode(text.replace(/\D/g, ""))}
               style={[
-                tw`w-full p-2 rounded border text-center text-white text-sm sm:text-base`,
+                tw`w-full p-2 rounded border text-center text-black text-sm sm:text-base`,
                 {
                   backgroundColor: "transparent",
                   borderColor: "rgba(255,255,255,0.5)",
                 },
               ]}
               placeholder="Enter 6-digit OTP"
-              placeholderTextColor="rgba(255,255,255,0.5)"
+              placeholderTextColor="gray"
               keyboardType="numeric"
             />
             <TouchableOpacity
               onPress={handleOtpVerify}
-              style={[tw`px-4 py-1 rounded`, { backgroundColor: "#2bb673" }]}
+              style={[
+                tw`px-4 py-1 mt-3 rounded`,
+                { backgroundColor: "#2bb673" },
+              ]}
             >
               <Text style={tw`text-white text-xs sm:text-sm text-center`}>
                 Verify OTP

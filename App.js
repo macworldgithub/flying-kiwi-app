@@ -13,6 +13,7 @@ import SignUp from "./src/screens/Signup.js";
 import PlansScreen from "./src/screens/PlansScreen.jsx";
 import Order from "./src/screens/Order.jsx";
 import OrderDetail from "./src/screens/OrderDetail.jsx";
+import SelectPlanScreen from "./src/screens/SelectPlanScreen.jsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -32,6 +33,7 @@ export default function App() {
         <Stack.Screen name="SignUp" component={SignUp} />
         <Stack.Screen name="Order" component={Order} />
         <Stack.Screen name="OrderDetail" component={OrderDetail} />
+        <Stack.Screen name="SelectPlan" component={SelectPlanScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
