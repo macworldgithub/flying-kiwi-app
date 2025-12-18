@@ -323,11 +323,12 @@ const ChatScreen = ({ navigation }) => {
           onPress: async () => {
             setIsPorting(true);
             setShowNumberTypeSelection(false);
+            setShowNumberButtons(false);
             const formatted = Object.entries(submittedSignupDetails)
               .map(([key, value]) => `${key}: ${value}`)
               .join(", ");
             setLoading(true);
-            await handleSend(formatted, true, true, false);
+            await handleSend(formatted, false, true, true);
             setLoading(false);
             setShowExistingNumberInput(true);
           },
