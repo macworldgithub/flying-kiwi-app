@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { PaymentCard } from "../components/PaymentCard";
 import { API_BASE_URL } from "../utils/config";
 import axios from "axios";
+import { useFocusEffect } from "@react-navigation/native";
 const ChatScreen = ({ navigation }) => {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([
@@ -89,6 +90,14 @@ const ChatScreen = ({ navigation }) => {
   const [states, setStates] = useState([]);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [loadingStates, setLoadingStates] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        AsyncStorage.removeItem("selectedPlan");
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const loadSelectedPlan = async () => {
