@@ -200,9 +200,6 @@ const OrderDetail = () => {
             </View>
           </View>
         </View>
-
-        {/* Timeline – same as before */}
-        {/* ... baaki timeline code same rahega */}
       </ScrollView>
     </SafeAreaView>
   );

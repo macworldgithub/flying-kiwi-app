@@ -30,7 +30,7 @@ const ChatScreen = ({ navigation }) => {
     {
       id: 1,
       type: "bot",
-      text: "Hi , How can I help?",
+      text: "How can I help?",
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
@@ -84,12 +84,14 @@ const ChatScreen = ({ navigation }) => {
   const [hasValidSession, setHasValidSession] = useState(false);
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [otpCode, setOtpCode] = useState("");
-  const [otpTransactionId, setOtpTransactionId] = useState(""); // to track OTP
+  const [otpTransactionId, setOtpTransactionId] = useState("");
   const [otpVerified, setOtpVerified] = useState(false);
   const [user, setUser] = useState(null);
   const [states, setStates] = useState([]);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [loadingStates, setLoadingStates] = useState(false);
+  const [showInitialOptions, setShowInitialOptions] = useState(true);
+  const [isTransferFlow, setIsTransferFlow] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -121,6 +123,7 @@ const ChatScreen = ({ navigation }) => {
             },
           ]);
           setShowSignupForm(true);
+          setShowInitialOptions(false);
         }
       } catch (err) {
         console.error("Failed to load selected plan:", err);
@@ -152,6 +155,81 @@ const ChatScreen = ({ navigation }) => {
         .finally(() => setLoadingStates(false));
     }
   }, [showStatePicker]);
+
+  useEffect(() => {
+    const loadSelectedPlan = async () => {
+      try {
+        const storedPlan = await AsyncStorage.getItem("selectedPlan");
+        if (storedPlan) {
+          const plan = JSON.parse(storedPlan);
+          setSelectedPlan(plan);
+          setPlanNo(String(plan.planNo));
+
+          // ← YE NAYA ADD KIYA: quick buttons hide karne ke liye
+          setChat((prev) => [
+            ...prev.map((m) => ({ ...m, showQuickOptions: false })),
+            {
+              id: Date.now(),
+              type: "bot",
+              text: `You have already selected the plan:\n\n${plan.planName} — $${plan.price}`,
+              time: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
+          setShowSignupForm(true);
+        }
+      } catch (err) {
+        console.error("Failed to load selected plan:", err);
+      }
+    };
+    loadSelectedPlan();
+  }, []);
+
+  const handleInitialOption = async (option) => {
+    setShowInitialOptions(false);
+
+    let userText = "";
+    let query = null;
+
+    if (option === "buy") {
+      userText = "Buy an eSIM";
+      query = "signup";
+    } else if (option === "problem") {
+      userText = "Account, Billing or Technical Problem";
+    } else if (option === "manage") {
+      userText = "Transfer my number";
+      setIsTransferFlow(true);
+      addBotMessage("Please fill in the details in the given form below.");
+      setShowSignupForm(true);
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      return;
+    }
+
+    const userMsg = {
+      id: Date.now(),
+      type: "user",
+      text: userText,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+    setChat((prev) => [...prev, userMsg]);
+
+    if (query) {
+      setLoading(true);
+      await handleSend(query);
+      setLoading(false);
+    } else if (option === "problem") {
+      addBotMessage(
+        "Please describe your account, billing, or technical problem:"
+      );
+    }
+
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  };
   const fetchUserData = async () => {
     try {
       const token = await AsyncStorage.getItem("access_token");
@@ -1076,6 +1154,48 @@ const ChatScreen = ({ navigation }) => {
               </View>
             </View>
           )}
+
+          {/* NEW: Initial 3 Buttons at Bottom */}
+          {showInitialOptions && (
+            <View style={tw`mt-auto pt-8 pb-20 px-4`}>
+              <Text style={tw`text-white text-center text-lg font-bold mb-6`}>
+                How can I help you today?
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => handleInitialOption("buy")}
+                style={tw`bg-white rounded-xl py-4 mb-4 shadow-lg`}
+              >
+                <Text
+                  style={tw`text-gray-800 text-center text-base font-semibold`}
+                >
+                  Buy an eSIM
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleInitialOption("problem")}
+                style={tw`bg-white rounded-xl py-4 mb-4 shadow-lg`}
+              >
+                <Text
+                  style={tw`text-gray-800 text-center text-base font-semibold`}
+                >
+                  Account, Billing or Technical Problem
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => handleInitialOption("manage")}
+                style={tw`bg-white rounded-xl py-4 shadow-lg`}
+              >
+                <Text
+                  style={tw`text-gray-800 text-center text-base font-semibold`}
+                >
+                  Transfer my number
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {/* Number Selection Buttons */}
           {showNumberButtons && numberOptions.length > 0 && (
             <View style={[tw`mt-6 flex-row items-start`, { maxWidth: "90%" }]}>
@@ -1342,18 +1462,35 @@ const ChatScreen = ({ navigation }) => {
               <Text style={tw`text-black text-lg font-bold mb-3`}>
                 Select Number Type
               </Text>
-              <TouchableOpacity
-                style={[styles.button, styles.submitButton, tw`mb-3`]}
-                onPress={handleNewNumber}
-              >
-                <Text style={styles.buttonText}>New Number</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.submitButton]}
-                onPress={handleExistingNumberSelect}
-              >
-                <Text style={styles.buttonText}>Existing Number</Text>
-              </TouchableOpacity>
+              {isTransferFlow ? (
+                <View style={tw`items-center`}>
+                  <Text style={tw`text-black text-base mb-4 text-center`}>
+                    Since you're transferring your number, we'll use your
+                    existing number.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.button, styles.submitButton]}
+                    onPress={handleExistingNumberSelect}
+                  >
+                    <Text style={styles.buttonText}>Existing Number</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.button, styles.submitButton, tw`mb-3`]}
+                    onPress={handleNewNumber}
+                  >
+                    <Text style={styles.buttonText}>New Number</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.submitButton]}
+                    onPress={handleExistingNumberSelect}
+                  >
+                    <Text style={styles.buttonText}>Existing Number</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </ScrollView>
           </View>
         )}
@@ -1529,7 +1666,8 @@ const ChatScreen = ({ navigation }) => {
             />
           </View>
         )}
-        {!showSignupForm &&
+        {!showInitialOptions &&
+          !showSignupForm &&
           !showPayment &&
           !showNumberTypeSelection &&
           !showExistingNumberInput &&
