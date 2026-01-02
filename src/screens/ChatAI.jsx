@@ -101,38 +101,6 @@ const ChatScreen = ({ navigation }) => {
     }, [])
   );
 
-  useEffect(() => {
-    const loadSelectedPlan = async () => {
-      try {
-        const storedPlan = await AsyncStorage.getItem("selectedPlan");
-        if (storedPlan) {
-          const plan = JSON.parse(storedPlan);
-
-          setSelectedPlan(plan);
-          setPlanNo(String(plan.planNo));
-          setChat((prev) => [
-            ...prev,
-            {
-              id: Date.now(),
-              type: "bot",
-              text: `You have already selected the plan:\n\n${plan.planName} — $${plan.price}`,
-              time: new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            },
-          ]);
-          setShowSignupForm(true);
-          setShowInitialOptions(false);
-        }
-      } catch (err) {
-        console.error("Failed to load selected plan:", err);
-      }
-    };
-
-    loadSelectedPlan();
-  }, []);
-
   // useEffect(() => {
   //   if (selectedPlan && !isPorting) {
   //     setShowPayment(true);
@@ -178,7 +146,7 @@ const ChatScreen = ({ navigation }) => {
               }),
             },
           ]);
-          setShowSignupForm(true);
+          setShowSignupForm(false);
         }
       } catch (err) {
         console.error("Failed to load selected plan:", err);
@@ -935,7 +903,6 @@ const ChatScreen = ({ navigation }) => {
         return;
       }
 
-      
       setOtpVerified(true);
       setShowOtpInput(false);
       setFormErrors((prev) => ({ ...prev, otp: undefined }));
@@ -1007,7 +974,7 @@ const ChatScreen = ({ navigation }) => {
         body: JSON.stringify(payload),
       });
       const result = await res.json();
-    
+
       setChat((prev) =>
         prev.filter(
           (m) =>
@@ -1694,7 +1661,6 @@ const ChatScreen = ({ navigation }) => {
               </Text>
             )}
             <View style={tw`flex-row justify-between w-full gap-4 mt-4`}>
-            
               <TouchableOpacity
                 onPress={handleOtpVerify}
                 style={tw`flex-1 py-1 rounded-xl bg-green-600`}
@@ -1753,8 +1719,8 @@ const ChatScreen = ({ navigation }) => {
                     setOtpTransactionId(newTransactionId);
                     console.log(" New transactionId:", newTransactionId);
 
-                    setOtpCode(""); 
-                    setFormErrors((prev) => ({ ...prev, otp: undefined })); 
+                    setOtpCode("");
+                    setFormErrors((prev) => ({ ...prev, otp: undefined }));
 
                     addBotMessage("New OTP sent! Please check your phone.");
                     Alert.alert(
